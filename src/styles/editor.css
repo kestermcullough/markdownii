@@ -101,6 +101,13 @@
   font-size: 0.75em;
   font-weight: 700;
   transform: translateY(1px);
+  cursor: pointer;
+  transition: border-color 90ms ease, background-color 90ms ease;
+}
+
+.cm-md-task-box:hover {
+  border-color: var(--tn-cyan);
+  background: rgba(125, 207, 255, 0.12);
 }
 
 .cm-md-task-box.is-checked {
