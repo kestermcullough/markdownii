@@ -1,0 +1,99 @@
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-color);
+  user-select: none;
+}
+
+.file-tree {
+  padding: 4px 0;
+}
+
+.tree-item {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-item:hover {
+  background: var(--bg-hover);
+}
+
+.tree-item.active {
+  background: var(--bg-active);
+  color: var(--accent);
+}
+
+.tree-folder-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tree-chevron {
+  display: inline-block;
+  width: 12px;
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.tree-chevron.open {
+  transform: rotate(90deg);
+}
+
+.tree-children {
+  overflow: hidden;
+}
+
+.tree-children.collapsed {
+  display: none;
+}
+
+.tree-file-icon {
+  color: var(--text-muted);
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+  padding: 20px;
+}
+
+.empty-state-action {
+  margin-top: 12px;
+  padding: 6px 16px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.empty-state-action:hover {
+  background: var(--accent-hover);
+}

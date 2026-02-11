@@ -1,0 +1,76 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-text);
+  font-size: var(--font-size);
+}
+
+#app {
+  height: 100%;
+}
+
+.app-layout {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-rows: var(--tab-height) 1fr var(--status-height);
+  grid-template-areas:
+    "sidebar tabbar"
+    "sidebar editor"
+    "sidebar status";
+  height: 100%;
+}
+
+.app-layout.sidebar-collapsed {
+  grid-template-columns: 0px 1fr;
+}
+
+.app-layout.sidebar-collapsed .sidebar {
+  display: none;
+}
+
+.sidebar {
+  grid-area: sidebar;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.tab-bar {
+  grid-area: tabbar;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.tab-bar::-webkit-scrollbar {
+  height: 0;
+}
+
+.editor-area {
+  grid-area: editor;
+  overflow: hidden;
+  position: relative;
+}
+
+.status-bar {
+  grid-area: status;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}

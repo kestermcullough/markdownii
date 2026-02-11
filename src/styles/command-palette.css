@@ -1,0 +1,63 @@
+.command-palette-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  padding-top: 80px;
+  z-index: 100;
+}
+
+.command-palette {
+  width: 550px;
+  max-height: 400px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  align-self: flex-start;
+}
+
+.command-palette-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 16px;
+  font-family: var(--font-text);
+  outline: none;
+}
+
+.command-palette-input::placeholder {
+  color: var(--text-muted);
+}
+
+.command-palette-results {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.command-palette-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.command-palette-item:hover,
+.command-palette-item.selected {
+  background: var(--bg-hover);
+}
+
+.command-palette-item-path {
+  font-size: 11px;
+  color: var(--text-muted);
+}
