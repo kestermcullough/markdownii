@@ -1,3 +1,4 @@
+import { getRelativePath } from "../path-utils";
 import type { AppState } from "../state";
 
 export class TabBar {
@@ -15,12 +16,19 @@ export class TabBar {
     parent.appendChild(this.root);
   }
 
+  private tabTitle(path: string, name: string): string {
+    if (!this.state.vaultPath) return path;
+    const rel = getRelativePath(path, this.state.vaultPath);
+    return rel || name;
+  }
+
   private render() {
     this.root.innerHTML = "";
 
     for (const tab of this.state.openTabs) {
       const tabEl = document.createElement("div");
       tabEl.className = "tab";
+      tabEl.title = this.tabTitle(tab.path, tab.name);
 
       if (tab.path === this.state.activeFilePath) {
         tabEl.classList.add("tab-active");
@@ -32,6 +40,7 @@ export class TabBar {
       const label = document.createElement("span");
       label.className = "tab-label";
       label.textContent = tab.name;
+      label.title = tabEl.title;
       tabEl.appendChild(label);
 
       const closeBtn = document.createElement("span");

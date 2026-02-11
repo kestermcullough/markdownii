@@ -1,4 +1,5 @@
 import { EditorView } from "@codemirror/view";
+import { getFileName } from "./path-utils";
 import { AppState, countWords } from "./state";
 import { createEditor } from "./editor/setup";
 import { Sidebar } from "./ui/sidebar";
@@ -128,6 +129,19 @@ function init() {
   layout.appendChild(tabBar.root);
   layout.appendChild(editorArea);
   layout.appendChild(statusBar.root);
+
+  const updateWindowTitle = () => {
+    const vaultName = state.vaultPath ? getFileName(state.vaultPath) : "MarkdownII";
+    const active = state.getActiveTab();
+    document.title = active
+      ? `${active.name} — ${vaultName}`
+      : `${vaultName} — MarkdownII`;
+  };
+
+  state.on("vault-loaded", updateWindowTitle);
+  state.on("tabs-changed", updateWindowTitle);
+  state.on("active-tab-changed", updateWindowTitle);
+  updateWindowTitle();
 
   // Handle sidebar toggle
   state.on("sidebar-toggled", () => {

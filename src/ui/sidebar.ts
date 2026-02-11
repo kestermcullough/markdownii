@@ -1,4 +1,4 @@
-import { getFileName } from "../path-utils";
+import { getFileName, getRelativePath } from "../path-utils";
 import type { AppState } from "../state";
 import type { FileEntry } from "../tauri-api";
 
@@ -7,6 +7,8 @@ export class Sidebar {
   private header: HTMLElement;
   private treeRoot: HTMLElement;
   private emptyState: HTMLElement;
+  private emptyLabel: HTMLSpanElement;
+  private openButton: HTMLButtonElement;
 
   constructor(private state: AppState) {
     this.root = document.createElement("div");
@@ -23,13 +25,17 @@ export class Sidebar {
 
     this.emptyState = document.createElement("div");
     this.emptyState.className = "empty-state";
-    this.emptyState.innerHTML = `
-      <span>No vault open</span>
-      <button class="empty-state-action">Open Folder</button>
-    `;
-    this.emptyState
-      .querySelector("button")!
-      .addEventListener("click", () => this.state.openVault());
+
+    this.emptyLabel = document.createElement("span");
+    this.emptyLabel.textContent = "No vault open";
+
+    this.openButton = document.createElement("button");
+    this.openButton.className = "empty-state-action";
+    this.openButton.textContent = "Open Folder";
+    this.openButton.addEventListener("click", () => this.state.openVault());
+
+    this.emptyState.appendChild(this.emptyLabel);
+    this.emptyState.appendChild(this.openButton);
     this.root.appendChild(this.emptyState);
 
     this.state.on("vault-loaded", () => this.renderTree());
@@ -42,40 +48,61 @@ export class Sidebar {
     parent.appendChild(this.root);
   }
 
+  private updateHeader() {
+    const vaultPath = this.state.vaultPath;
+    const vaultName = vaultPath ? getFileName(vaultPath) : "Explorer";
+    this.header.innerHTML = `<span>${vaultName}</span>`;
+    this.header.title = vaultPath ?? "";
+  }
+
+  private updateEmptyState() {
+    if (!this.state.vaultPath) {
+      this.emptyLabel.textContent = "No vault open";
+      this.openButton.textContent = "Open Folder";
+      this.openButton.style.display = "inline-flex";
+      return;
+    }
+
+    const vaultName = getFileName(this.state.vaultPath);
+    this.emptyLabel.textContent = `No markdown files in ${vaultName}`;
+    this.openButton.textContent = "Open Different Folder";
+    this.openButton.style.display = "inline-flex";
+  }
+
   private renderTree() {
+    this.updateHeader();
+
     if (!this.state.vaultTree.length) {
       this.treeRoot.style.display = "none";
       this.emptyState.style.display = "flex";
+      this.updateEmptyState();
       return;
     }
 
     this.treeRoot.style.display = "block";
     this.emptyState.style.display = "none";
 
-    // Update header with vault name
-    const vaultName = this.state.vaultPath
-      ? getFileName(this.state.vaultPath)
-      : "Vault";
-    this.header.innerHTML = `<span>${vaultName}</span>`;
-
     this.treeRoot.innerHTML = "";
     this.renderEntries(this.state.vaultTree, this.treeRoot, 0);
   }
 
-  private renderEntries(
-    entries: FileEntry[],
-    parent: HTMLElement,
-    depth: number
-  ) {
+  private relativeTitle(path: string): string {
+    if (!this.state.vaultPath) return path;
+    const rel = getRelativePath(path, this.state.vaultPath);
+    return rel || getFileName(path);
+  }
+
+  private renderEntries(entries: FileEntry[], parent: HTMLElement, depth: number) {
     for (const entry of entries) {
       const row = document.createElement("div");
       row.className = "tree-item";
       row.style.paddingLeft = `${depth * 16 + 8}px`;
+      row.title = this.relativeTitle(entry.path);
 
       if (entry.is_dir) {
         const chevron = document.createElement("span");
         chevron.className = "tree-chevron open";
-        chevron.textContent = "\u25B6"; // right triangle
+        chevron.textContent = "\u25B6";
         row.appendChild(chevron);
 
         const label = document.createElement("span");
@@ -97,12 +124,6 @@ export class Sidebar {
         }
         parent.appendChild(children);
       } else {
-        const icon = document.createElement("span");
-        icon.className = "tree-file-icon";
-        icon.textContent = "\u{1F4C4}"; // page icon
-        // Use a simple text marker instead of emoji for consistency
-        icon.textContent = "";
-
         const label = document.createElement("span");
         label.textContent = entry.name;
         row.appendChild(label);
@@ -133,10 +154,10 @@ export class Sidebar {
   }
 
   private updateVisibility() {
-    // Initial state
     if (!this.state.vaultTree.length) {
       this.treeRoot.style.display = "none";
       this.emptyState.style.display = "flex";
+      this.updateEmptyState();
     }
   }
 }
