@@ -1,3 +1,4 @@
+import { getRelativePath } from "../path-utils";
 import type { AppState } from "../state";
 import { flattenTree } from "../state";
 import type { FileEntry } from "../tauri-api";
@@ -139,13 +140,15 @@ export class CommandPalette {
       name.textContent = file.name;
       item.appendChild(name);
 
-      // Show relative path
+      // Show relative path (normalized, never absolute)
       if (this.state.vaultPath) {
-        const relPath = file.path.replace(this.state.vaultPath, "");
-        const pathEl = document.createElement("span");
-        pathEl.className = "command-palette-item-path";
-        pathEl.textContent = relPath;
-        item.appendChild(pathEl);
+        const relPath = getRelativePath(file.path, this.state.vaultPath);
+        if (relPath) {
+          const pathEl = document.createElement("span");
+          pathEl.className = "command-palette-item-path";
+          pathEl.textContent = `/${relPath}`;
+          item.appendChild(pathEl);
+        }
       }
 
       item.addEventListener("click", () => {

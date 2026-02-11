@@ -43,11 +43,13 @@
 }
 
 .font-selector-select,
+.font-selector-input,
 .font-selector-range {
   width: 100%;
 }
 
-.font-selector-select {
+.font-selector-select,
+.font-selector-input {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background: var(--bg-tertiary);
@@ -56,9 +58,14 @@
   font-size: 13px;
 }
 
-.font-selector-select:focus {
+.font-selector-select:focus,
+.font-selector-input:focus {
   outline: 1px solid var(--accent);
   border-color: var(--accent);
+}
+
+.font-selector-input::placeholder {
+  color: var(--text-muted);
 }
 
 .font-selector-range-header {

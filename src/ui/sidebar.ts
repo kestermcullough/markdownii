@@ -1,3 +1,4 @@
+import { getFileName } from "../path-utils";
 import type { AppState } from "../state";
 import type { FileEntry } from "../tauri-api";
 
@@ -52,7 +53,9 @@ export class Sidebar {
     this.emptyState.style.display = "none";
 
     // Update header with vault name
-    const vaultName = this.state.vaultPath?.split("/").pop() ?? "Vault";
+    const vaultName = this.state.vaultPath
+      ? getFileName(this.state.vaultPath)
+      : "Vault";
     this.header.innerHTML = `<span>${vaultName}</span>`;
 
     this.treeRoot.innerHTML = "";

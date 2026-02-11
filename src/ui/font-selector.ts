@@ -65,11 +65,18 @@ function ensureValueOption(select: HTMLSelectElement, value: string) {
   select.value = value;
 }
 
+function normalizedFontInput(value: string, fallback: string): string {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : fallback;
+}
+
 export class FontSelector {
   root: HTMLElement;
   private panel: HTMLElement;
   private textSelect: HTMLSelectElement;
   private monoSelect: HTMLSelectElement;
+  private textCustomInput: HTMLInputElement;
+  private monoCustomInput: HTMLInputElement;
   private sizeInput: HTMLInputElement;
   private lineHeightInput: HTMLInputElement;
   private sizeValue: HTMLElement;
@@ -90,7 +97,8 @@ export class FontSelector {
 
     const subtitle = document.createElement("p");
     subtitle.className = "font-selector-subtitle";
-    subtitle.textContent = "Preview applies instantly and is saved automatically.";
+    subtitle.textContent =
+      "Preview applies instantly and is saved automatically. You can type any system font stack.";
 
     this.textSelect = document.createElement("select");
     this.textSelect.className = "font-selector-select";
@@ -99,6 +107,18 @@ export class FontSelector {
     this.monoSelect = document.createElement("select");
     this.monoSelect.className = "font-selector-select";
     createOptions(this.monoSelect, MONO_FONT_OPTIONS);
+
+    this.textCustomInput = document.createElement("input");
+    this.textCustomInput.type = "text";
+    this.textCustomInput.className = "font-selector-input";
+    this.textCustomInput.placeholder =
+      'Custom text font stack (e.g. "Segoe UI", Arial, sans-serif)';
+
+    this.monoCustomInput = document.createElement("input");
+    this.monoCustomInput.type = "text";
+    this.monoCustomInput.className = "font-selector-input";
+    this.monoCustomInput.placeholder =
+      'Custom code font stack (e.g. "Cascadia Code", Consolas, monospace)';
 
     this.sizeInput = document.createElement("input");
     this.sizeInput.type = "range";
@@ -121,8 +141,12 @@ export class FontSelector {
 
     this.panel.appendChild(title);
     this.panel.appendChild(subtitle);
-    this.panel.appendChild(this.makeSelectRow("Text Font", this.textSelect));
-    this.panel.appendChild(this.makeSelectRow("Code Font", this.monoSelect));
+    this.panel.appendChild(
+      this.makeFontRow("Text Font", this.textSelect, this.textCustomInput)
+    );
+    this.panel.appendChild(
+      this.makeFontRow("Code Font", this.monoSelect, this.monoCustomInput)
+    );
     this.panel.appendChild(
       this.makeRangeRow("Font Size", this.sizeInput, this.sizeValue)
     );
@@ -153,8 +177,18 @@ export class FontSelector {
       if (e.target === this.root) this.hide();
     });
 
-    this.textSelect.addEventListener("change", () => this.applyCurrent());
-    this.monoSelect.addEventListener("change", () => this.applyCurrent());
+    this.textSelect.addEventListener("change", () => {
+      this.textCustomInput.value = this.textSelect.value;
+      this.applyCurrent();
+    });
+    this.monoSelect.addEventListener("change", () => {
+      this.monoCustomInput.value = this.monoSelect.value;
+      this.applyCurrent();
+    });
+
+    this.textCustomInput.addEventListener("input", () => this.applyCurrent());
+    this.monoCustomInput.addEventListener("input", () => this.applyCurrent());
+
     this.sizeInput.addEventListener("input", () => this.applyCurrent());
     this.lineHeightInput.addEventListener("input", () => this.applyCurrent());
 
@@ -181,7 +215,11 @@ export class FontSelector {
     return this.visible;
   }
 
-  private makeSelectRow(label: string, input: HTMLSelectElement) {
+  private makeFontRow(
+    label: string,
+    select: HTMLSelectElement,
+    customInput: HTMLInputElement
+  ) {
     const row = document.createElement("label");
     row.className = "font-selector-row";
 
@@ -190,7 +228,8 @@ export class FontSelector {
     name.textContent = label;
 
     row.appendChild(name);
-    row.appendChild(input);
+    row.appendChild(select);
+    row.appendChild(customInput);
     return row;
   }
 
@@ -221,6 +260,8 @@ export class FontSelector {
     const settings = this.state.settings;
     ensureValueOption(this.textSelect, settings.fontText);
     ensureValueOption(this.monoSelect, settings.fontMono);
+    this.textCustomInput.value = settings.fontText;
+    this.monoCustomInput.value = settings.fontMono;
     this.sizeInput.value = String(settings.fontSize);
     this.lineHeightInput.value = String(settings.lineHeight);
     this.sizeValue.textContent = `${settings.fontSize}px`;
@@ -231,8 +272,8 @@ export class FontSelector {
     const fontSize = Number.parseFloat(this.sizeInput.value);
     const lineHeight = Number.parseFloat(this.lineHeightInput.value);
     this.state.updateSettings({
-      fontText: this.textSelect.value,
-      fontMono: this.monoSelect.value,
+      fontText: normalizedFontInput(this.textCustomInput.value, this.textSelect.value),
+      fontMono: normalizedFontInput(this.monoCustomInput.value, this.monoSelect.value),
       fontSize: Number.isFinite(fontSize) ? fontSize : undefined,
       lineHeight: Number.isFinite(lineHeight) ? lineHeight : undefined,
     });

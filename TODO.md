@@ -85,3 +85,10 @@ Keep a durable, lightweight edit history so undo/redo works deeply (including af
 - [ ] Keep undo/redo exhaustive only for current session first.
 - [ ] Add patch-based persistence in v2 once UX is stable.
 
+
+## 4) File name/path display cleanup
+
+- [ ] Show just `filename.md` in UI title labels where full paths currently appear.
+- [ ] Keep full path only where needed as secondary context (tooltip or muted sublabel).
+- [ ] Normalize path separators for Windows/Linux so relative path rendering is consistent.
+

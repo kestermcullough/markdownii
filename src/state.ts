@@ -1,4 +1,5 @@
 import { EditorView } from "@codemirror/view";
+import { getFileName } from "./path-utils";
 import type { FileEntry } from "./tauri-api";
 import {
   openVaultDialog,
@@ -379,7 +380,7 @@ export class AppState {
     }
 
     const content = await readFile(path);
-    const name = path.split("/").pop() || path.split("\\").pop() || path;
+    const name = getFileName(path);
 
     this.openTabs.push({
       path,
