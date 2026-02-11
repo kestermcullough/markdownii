@@ -1,4 +1,4 @@
-# Obsidian-Lite: Minimal Markdown Editor
+# MarkdownII: Minimal Markdown Editor
 
 ## Context
 

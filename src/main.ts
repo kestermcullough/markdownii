@@ -7,9 +7,9 @@ import { CommandPalette } from "./ui/command-palette";
 import { StatusBar } from "./ui/status-bar";
 import { registerGlobalShortcuts, editorKeymap } from "./keybindings";
 
-const SAMPLE_MD = `# Welcome to Obsidian Lite
+const SAMPLE_MD = `# Welcome to MarkdownII
 
-This is a **minimal markdown editor** inspired by Obsidian.
+This is a **minimal markdown editor** with real-time inline rendering.
 
 ## Features
 

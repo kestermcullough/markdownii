@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Default capabilities for Obsidian Lite",
+  "description": "Default capabilities for MarkdownII",
   "windows": ["main"],
   "permissions": [
     "core:default",
