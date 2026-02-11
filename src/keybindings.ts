@@ -1,6 +1,7 @@
 import { keymap, EditorView } from "@codemirror/view";
 import type { AppState } from "./state";
 import type { CommandPalette } from "./ui/command-palette";
+import type { FontSelector } from "./ui/font-selector";
 
 const isMac = navigator.platform.includes("Mac");
 
@@ -8,19 +9,34 @@ function isModKey(e: KeyboardEvent): boolean {
   return isMac ? e.metaKey : e.ctrlKey;
 }
 
+function isFormControlTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  );
+}
+
 export function registerGlobalShortcuts(
   state: AppState,
-  palette: CommandPalette
+  palette: CommandPalette,
+  fontSelector: FontSelector
 ) {
   document.addEventListener("keydown", (e) => {
     // Escape: close palette
     if (e.key === "Escape") {
+      if (fontSelector.isVisible()) {
+        fontSelector.hide();
+        e.preventDefault();
+      }
       if (palette.isVisible()) {
         palette.hide();
         e.preventDefault();
       }
       return;
     }
+
+    if (isFormControlTarget(e.target)) return;
 
     if (!isModKey(e)) return;
 
@@ -33,6 +49,17 @@ export function registerGlobalShortcuts(
         e.preventDefault();
         state.saveActiveFile();
         break;
+      case "z":
+        e.preventDefault();
+        if (e.shiftKey) state.redoActiveFile();
+        else state.undoActiveFile();
+        break;
+      case "y":
+        if (!isMac) {
+          e.preventDefault();
+          state.redoActiveFile();
+        }
+        break;
       case "w":
         e.preventDefault();
         if (state.activeFilePath) state.closeTab(state.activeFilePath);
@@ -44,6 +71,10 @@ export function registerGlobalShortcuts(
       case "o":
         e.preventDefault();
         state.openVault();
+        break;
+      case ",":
+        e.preventDefault();
+        fontSelector.show();
         break;
       case "tab":
         e.preventDefault();
@@ -67,7 +98,7 @@ export function registerGlobalShortcuts(
       e.preventDefault();
       state.toggleSidebar();
     }
-  });
+  }, { capture: true });
 }
 
 /** CM6 keymap extension for formatting shortcuts */

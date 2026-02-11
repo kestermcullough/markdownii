@@ -10,6 +10,130 @@ import {
 
 type EventCallback = (...args: any[]) => void;
 
+const SETTINGS_STORAGE_KEY = "markdownii.settings.v1";
+const HISTORY_DEBOUNCE_MS = 900;
+const MAX_HISTORY_PATCHES = 10000;
+
+export interface EditorSettings {
+  fontText: string;
+  fontMono: string;
+  fontSize: number;
+  lineHeight: number;
+}
+
+export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
+  fontText:
+    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
+  fontMono:
+    '"SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", Menlo, Courier, monospace',
+  fontSize: 16,
+  lineHeight: 1.6,
+};
+
+interface DiffPatch {
+  start: number;
+  deleteCount: number;
+  insert: string;
+  deleted: string;
+}
+
+interface TabHistory {
+  done: DiffPatch[];
+  undone: DiffPatch[];
+  pendingBaseline: string | null;
+  pendingLatest: string | null;
+  timerId: number | null;
+  applying: boolean;
+}
+
+function createTabHistory(): TabHistory {
+  return {
+    done: [],
+    undone: [],
+    pendingBaseline: null,
+    pendingLatest: null,
+    timerId: null,
+    applying: false,
+  };
+}
+
+function computePatch(before: string, after: string): DiffPatch | null {
+  if (before === after) return null;
+
+  let start = 0;
+  const maxPrefix = Math.min(before.length, after.length);
+  while (start < maxPrefix && before[start] === after[start]) {
+    start++;
+  }
+
+  let beforeEnd = before.length - 1;
+  let afterEnd = after.length - 1;
+  while (
+    beforeEnd >= start &&
+    afterEnd >= start &&
+    before[beforeEnd] === after[afterEnd]
+  ) {
+    beforeEnd--;
+    afterEnd--;
+  }
+
+  const deleted = before.slice(start, beforeEnd + 1);
+  const insert = after.slice(start, afterEnd + 1);
+  return {
+    start,
+    deleteCount: deleted.length,
+    insert,
+    deleted,
+  };
+}
+
+function applyPatch(text: string, patch: DiffPatch): string | null {
+  const end = patch.start + patch.deleteCount;
+  if (patch.start < 0 || end > text.length || patch.start > end) {
+    return null;
+  }
+  return text.slice(0, patch.start) + patch.insert + text.slice(end);
+}
+
+function invertPatch(patch: DiffPatch): DiffPatch {
+  return {
+    start: patch.start,
+    deleteCount: patch.insert.length,
+    insert: patch.deleted,
+    deleted: patch.insert,
+  };
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number) {
+  if (typeof value !== "number" || Number.isNaN(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeSettingText(value: unknown, fallback: string): string {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : fallback;
+}
+
+function normalizeSettings(input: unknown): EditorSettings {
+  if (!input || typeof input !== "object") {
+    return { ...DEFAULT_EDITOR_SETTINGS };
+  }
+
+  const raw = input as Partial<EditorSettings>;
+  return {
+    fontText: normalizeSettingText(raw.fontText, DEFAULT_EDITOR_SETTINGS.fontText),
+    fontMono: normalizeSettingText(raw.fontMono, DEFAULT_EDITOR_SETTINGS.fontMono),
+    fontSize: clampNumber(raw.fontSize, 12, 26, DEFAULT_EDITOR_SETTINGS.fontSize),
+    lineHeight: clampNumber(
+      raw.lineHeight,
+      1.2,
+      2.2,
+      DEFAULT_EDITOR_SETTINGS.lineHeight
+    ),
+  };
+}
+
 export function countWords(text: string): number {
   const trimmed = text.trim();
   return trimmed ? trimmed.split(/\s+/).length : 0;
@@ -33,10 +157,12 @@ export interface TabState {
   path: string;
   name: string;
   content: string;
+  lastSavedContent: string;
   wordCount: number;
   dirty: boolean;
   editorView: EditorView | null;
   scrollTop: number;
+  history: TabHistory;
 }
 
 export class AppState {
@@ -45,8 +171,14 @@ export class AppState {
   openTabs: TabState[] = [];
   activeFilePath: string | null = null;
   sidebarVisible = true;
+  settings: EditorSettings;
 
   private listeners = new Map<string, Set<EventCallback>>();
+
+  constructor() {
+    this.settings = this.loadSettings();
+    this.applySettingsToDocument();
+  }
 
   on(event: string, fn: EventCallback) {
     if (!this.listeners.has(event)) this.listeners.set(event, new Set());
@@ -59,6 +191,169 @@ export class AppState {
 
   emit(event: string, ...args: any[]) {
     this.listeners.get(event)?.forEach((fn) => fn(...args));
+  }
+
+  private loadSettings(): EditorSettings {
+    try {
+      const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (!raw) return { ...DEFAULT_EDITOR_SETTINGS };
+      return normalizeSettings(JSON.parse(raw));
+    } catch {
+      return { ...DEFAULT_EDITOR_SETTINGS };
+    }
+  }
+
+  private persistSettings() {
+    try {
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(this.settings));
+    } catch {
+      // Best-effort persistence.
+    }
+  }
+
+  private applySettingsToDocument() {
+    const root = document.documentElement;
+    root.style.setProperty("--font-text", this.settings.fontText);
+    root.style.setProperty("--font-mono", this.settings.fontMono);
+    root.style.setProperty("--font-size", `${this.settings.fontSize}px`);
+    root.style.setProperty("--line-height", `${this.settings.lineHeight}`);
+  }
+
+  updateSettings(next: Partial<EditorSettings>) {
+    this.settings = normalizeSettings({ ...this.settings, ...next });
+    this.persistSettings();
+    this.applySettingsToDocument();
+    this.emit("settings-changed", this.settings);
+  }
+
+  resetSettings() {
+    this.settings = { ...DEFAULT_EDITOR_SETTINGS };
+    this.persistSettings();
+    this.applySettingsToDocument();
+    this.emit("settings-changed", this.settings);
+  }
+
+  private getTabByPath(path: string): TabState | undefined {
+    return this.openTabs.find((t) => t.path === path);
+  }
+
+  private clearTabHistoryTimer(tab: TabState) {
+    if (tab.history.timerId !== null) {
+      window.clearTimeout(tab.history.timerId);
+      tab.history.timerId = null;
+    }
+  }
+
+  private enqueuePatch(tab: TabState, patch: DiffPatch) {
+    tab.history.done.push(patch);
+    tab.history.undone = [];
+    if (tab.history.done.length > MAX_HISTORY_PATCHES) {
+      tab.history.done.splice(0, tab.history.done.length - MAX_HISTORY_PATCHES);
+    }
+  }
+
+  isApplyingHistory(path: string): boolean {
+    return this.getTabByPath(path)?.history.applying ?? false;
+  }
+
+  recordDocChange(path: string, before: string, after: string) {
+    const tab = this.getTabByPath(path);
+    if (!tab || tab.history.applying || before === after) return;
+
+    if (tab.history.pendingBaseline === null) {
+      tab.history.pendingBaseline = before;
+    }
+    tab.history.pendingLatest = after;
+
+    this.clearTabHistoryTimer(tab);
+    tab.history.timerId = window.setTimeout(() => {
+      this.flushTabHistory(path);
+    }, HISTORY_DEBOUNCE_MS);
+  }
+
+  flushTabHistory(path: string) {
+    const tab = this.getTabByPath(path);
+    if (!tab) return;
+
+    this.clearTabHistoryTimer(tab);
+
+    const baseline = tab.history.pendingBaseline;
+    const latest = tab.history.pendingLatest;
+    tab.history.pendingBaseline = null;
+    tab.history.pendingLatest = null;
+
+    if (baseline === null || latest === null) return;
+
+    const patch = computePatch(baseline, latest);
+    if (!patch) return;
+
+    this.enqueuePatch(tab, patch);
+  }
+
+  undoActiveFile() {
+    const tab = this.getActiveTab();
+    if (!tab?.editorView) return;
+
+    this.flushTabHistory(tab.path);
+
+    const patch = tab.history.done.pop();
+    if (!patch) return;
+
+    const currentText = tab.editorView.state.doc.toString();
+    const nextText = applyPatch(currentText, invertPatch(patch));
+
+    if (nextText === null) {
+      tab.history.done.push(patch);
+      return;
+    }
+
+    tab.history.applying = true;
+    try {
+      tab.editorView.dispatch({
+        changes: { from: 0, to: currentText.length, insert: nextText },
+      });
+    } finally {
+      tab.history.applying = false;
+    }
+
+    tab.history.undone.push(patch);
+    tab.content = nextText;
+    tab.wordCount = countWords(nextText);
+    tab.dirty = nextText !== tab.lastSavedContent;
+    this.emit("tabs-changed");
+  }
+
+  redoActiveFile() {
+    const tab = this.getActiveTab();
+    if (!tab?.editorView) return;
+
+    this.flushTabHistory(tab.path);
+
+    const patch = tab.history.undone.pop();
+    if (!patch) return;
+
+    const currentText = tab.editorView.state.doc.toString();
+    const nextText = applyPatch(currentText, patch);
+
+    if (nextText === null) {
+      tab.history.undone.push(patch);
+      return;
+    }
+
+    tab.history.applying = true;
+    try {
+      tab.editorView.dispatch({
+        changes: { from: 0, to: currentText.length, insert: nextText },
+      });
+    } finally {
+      tab.history.applying = false;
+    }
+
+    tab.history.done.push(patch);
+    tab.content = nextText;
+    tab.wordCount = countWords(nextText);
+    tab.dirty = nextText !== tab.lastSavedContent;
+    this.emit("tabs-changed");
   }
 
   async openVault() {
@@ -90,10 +385,12 @@ export class AppState {
       path,
       name,
       content,
+      lastSavedContent: content,
       wordCount: countWords(content),
       dirty: false,
       editorView: null,
       scrollTop: 0,
+      history: createTabHistory(),
     });
 
     this.emit("tabs-changed");
@@ -104,6 +401,7 @@ export class AppState {
     // Save current editor scroll position
     const current = this.getActiveTab();
     if (current?.editorView) {
+      this.flushTabHistory(current.path);
       current.scrollTop = current.editorView.scrollDOM.scrollTop;
     }
 
@@ -116,6 +414,9 @@ export class AppState {
     if (idx === -1) return;
 
     const tab = this.openTabs[idx];
+    this.flushTabHistory(tab.path);
+    this.clearTabHistoryTimer(tab);
+
     if (tab.editorView) {
       tab.editorView.destroy();
       tab.editorView = null;
@@ -137,9 +438,12 @@ export class AppState {
     const tab = this.getActiveTab();
     if (!tab || !tab.editorView) return;
 
+    this.flushTabHistory(tab.path);
+
     const content = tab.editorView.state.doc.toString();
     await writeFile(tab.path, content);
     tab.content = content;
+    tab.lastSavedContent = content;
     tab.wordCount = countWords(content);
     tab.dirty = false;
     this.emit("tabs-changed");
@@ -149,6 +453,16 @@ export class AppState {
     const tab = this.openTabs.find((t) => t.path === path);
     if (tab && !tab.dirty) {
       tab.dirty = true;
+      this.emit("tabs-changed");
+    }
+  }
+
+  syncDirtyFromContent(path: string, content: string) {
+    const tab = this.getTabByPath(path);
+    if (!tab) return;
+    const nextDirty = content !== tab.lastSavedContent;
+    if (tab.dirty !== nextDirty) {
+      tab.dirty = nextDirty;
       this.emit("tabs-changed");
     }
   }

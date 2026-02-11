@@ -5,6 +5,7 @@ import { Sidebar } from "./ui/sidebar";
 import { TabBar } from "./ui/tab-bar";
 import { CommandPalette } from "./ui/command-palette";
 import { StatusBar } from "./ui/status-bar";
+import { FontSelector } from "./ui/font-selector";
 import { registerGlobalShortcuts, editorKeymap } from "./keybindings";
 
 const SAMPLE_MD = `# Welcome to MarkdownII
@@ -51,11 +52,6 @@ function init() {
   // Sidebar
   const sidebar = new Sidebar(state);
 
-  // Tab bar container
-  const tabBarContainer = document.createElement("div");
-  tabBarContainer.className = "tab-bar";
-  tabBarContainer.style.gridArea = "tabbar";
-
   const tabBar = new TabBar(state);
 
   // Editor area
@@ -67,6 +63,7 @@ function init() {
 
   // Command palette
   const palette = new CommandPalette(state);
+  const fontSelector = new FontSelector(state);
 
   // Assemble layout
   layout.appendChild(sidebar.root);
@@ -74,6 +71,7 @@ function init() {
   layout.appendChild(editorArea);
   layout.appendChild(statusBar.root);
   palette.mount(document.body);
+  fontSelector.mount(document.body);
 
   // Handle sidebar toggle
   state.on("sidebar-toggled", () => {
@@ -110,12 +108,18 @@ function init() {
       tab.editorView = createEditor(
         editorArea,
         tab.content,
-        () => state.markDirty(tab.path),
+        undefined,
         editorKeymap(),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged && !update.selectionSet) return;
           if (update.docChanged) {
-            tab.wordCount = countWords(update.state.doc.toString());
+            const beforeText = update.startState.doc.toString();
+            const nextText = update.state.doc.toString();
+            tab.wordCount = countWords(nextText);
+            state.recordDocChange(tab.path, beforeText, nextText);
+            if (!state.isApplyingHistory(tab.path)) {
+              state.syncDirtyFromContent(tab.path, nextText);
+            }
           }
           updateStatusBar(update.view, statusBar, tab.wordCount);
         })
@@ -140,7 +144,7 @@ function init() {
   });
 
   // Register global shortcuts
-  registerGlobalShortcuts(state, palette);
+  registerGlobalShortcuts(state, palette, fontSelector);
 
   // Show a scratch editor on first load (before any vault is opened)
   const scratchEditor = createEditor(
