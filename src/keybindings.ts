@@ -52,9 +52,11 @@ function showShortcutHelp() {
 
 function isShortcutHelpEvent(e: KeyboardEvent): boolean {
   if (!isModKey(e)) return false;
-  if (e.key === "?") return true;
-  if (e.key === "/" && e.shiftKey) return true;
-  if (e.code === "Slash" && e.shiftKey) return true;
+
+  // Keyboard layouts/OSes report Ctrl+? differently. Treat any Mod+Slash combo
+  // as the shortcuts-help trigger so editor comment toggles don't steal it.
+  if (e.key === "?" || e.key === "/" || e.code === "Slash") return true;
+
   return false;
 }
 
@@ -289,6 +291,13 @@ export function registerGlobalShortcuts(
 export function editorKeymap() {
   return Prec.highest(
     keymap.of([
+      {
+        key: "Mod-/",
+        run: () => {
+          showShortcutHelp();
+          return true;
+        },
+      },
       {
         key: "Mod-Shift-/",
         run: () => {

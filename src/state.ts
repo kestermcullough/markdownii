@@ -300,10 +300,17 @@ export class AppState {
     const patch = tab.history.done.pop();
     if (!patch) return;
 
+    const inverse = invertPatch(patch);
+    const from = inverse.start;
+    const to = inverse.start + inverse.deleteCount;
     const currentText = tab.editorView.state.doc.toString();
-    const nextText = applyPatch(currentText, invertPatch(patch));
 
-    if (nextText === null) {
+    if (from < 0 || to > currentText.length || from > to) {
+      tab.history.done.push(patch);
+      return;
+    }
+
+    if (currentText.slice(from, to) !== inverse.deleted) {
       tab.history.done.push(patch);
       return;
     }
@@ -311,12 +318,13 @@ export class AppState {
     tab.history.applying = true;
     try {
       tab.editorView.dispatch({
-        changes: { from: 0, to: currentText.length, insert: nextText },
+        changes: { from, to, insert: inverse.insert },
       });
     } finally {
       tab.history.applying = false;
     }
 
+    const nextText = tab.editorView.state.doc.toString();
     tab.history.undone.push(patch);
     tab.content = nextText;
     tab.wordCount = countWords(nextText);
@@ -333,10 +341,16 @@ export class AppState {
     const patch = tab.history.undone.pop();
     if (!patch) return;
 
+    const from = patch.start;
+    const to = patch.start + patch.deleteCount;
     const currentText = tab.editorView.state.doc.toString();
-    const nextText = applyPatch(currentText, patch);
 
-    if (nextText === null) {
+    if (from < 0 || to > currentText.length || from > to) {
+      tab.history.undone.push(patch);
+      return;
+    }
+
+    if (currentText.slice(from, to) !== patch.deleted) {
       tab.history.undone.push(patch);
       return;
     }
@@ -344,12 +358,13 @@ export class AppState {
     tab.history.applying = true;
     try {
       tab.editorView.dispatch({
-        changes: { from: 0, to: currentText.length, insert: nextText },
+        changes: { from, to, insert: patch.insert },
       });
     } finally {
       tab.history.applying = false;
     }
 
+    const nextText = tab.editorView.state.doc.toString();
     tab.history.done.push(patch);
     tab.content = nextText;
     tab.wordCount = countWords(nextText);
