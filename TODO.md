@@ -6,16 +6,16 @@
 Let users pick editor/UI fonts and keep that preference across app restarts.
 
 ### MVP tasks
-- [ ] Add settings model in `src/state.ts`:
+- [x] Add settings model in `src/state.ts`:
   - `fontText`, `fontMono`, optional `fontSize`, `lineHeight`
-- [ ] Add persistence (start simple):
+- [x] Add persistence (start simple):
   - store settings in `localStorage` under one key (e.g. `markdownii.settings.v1`)
-- [ ] Apply settings live:
+- [x] Apply settings live:
   - set CSS vars on `document.documentElement` (`--font-text`, `--font-mono`, etc.)
-- [ ] Add UI entry point:
+- [x] Add UI entry point:
   - command palette action like `Preferences: Fonts`
   - minimal modal/select UI with 6-10 curated font stacks
-- [ ] Include `Reset to default` button
+- [x] Include `Reset to default` button
 
 ### Nice-to-have
 - [ ] Per-vault font override (fallback to global default)
@@ -23,11 +23,11 @@ Let users pick editor/UI fonts and keep that preference across app restarts.
 - [ ] Keyboard shortcuts for font size up/down/reset
 
 ### Suggested starter font presets
-- [ ] System UI: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`
-- [ ] Serif: `Charter, "Iowan Old Style", "Times New Roman", serif`
-- [ ] Humanist Sans: `"Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif`
-- [ ] Mono A: `"SF Mono", "Fira Code", Menlo, monospace`
-- [ ] Mono B: `"JetBrains Mono", "Cascadia Code", Consolas, monospace`
+- [x] System UI: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`
+- [x] Serif: `Charter, "Iowan Old Style", "Times New Roman", serif`
+- [x] Humanist Sans: `"Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif`
+- [x] Mono A: `"SF Mono", "Fira Code", Menlo, monospace`
+- [x] Mono B: `"JetBrains Mono", "Cascadia Code", Consolas, monospace`
 
 
 ## 2) Background Diffing + Exhaustive Undo/Redo
@@ -88,7 +88,7 @@ Keep a durable, lightweight edit history so undo/redo works deeply (including af
 
 ## 4) File name/path display cleanup
 
-- [ ] Show just `filename.md` in UI title labels where full paths currently appear.
-- [ ] Keep full path only where needed as secondary context (tooltip or muted sublabel).
-- [ ] Normalize path separators for Windows/Linux so relative path rendering is consistent.
+- [x] Show just `filename.md` in UI title labels where full paths currently appear.
+- [x] Keep full path only where needed as secondary context (tooltip or muted sublabel).
+- [x] Normalize path separators for Windows/Linux so relative path rendering is consistent.
 

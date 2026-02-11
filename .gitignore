@@ -18,3 +18,6 @@ Thumbs.db
 
 # Tauri generated
 src-tauri/gen/
+
+# Local native TUI prototype
+/tui
