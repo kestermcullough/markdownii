@@ -26,8 +26,8 @@ export async function writeFile(
   return invoke("write_file", { path, content });
 }
 
-export async function createFile(path: string): Promise<void> {
-  return invoke("create_file", { path });
+export async function createFile(path: string): Promise<string> {
+  return invoke<string>("create_file", { path });
 }
 
 export async function deleteFile(path: string): Promise<void> {

@@ -18,6 +18,38 @@ let armedPointToNoneKey: string | null = null;
 
 const isMac = navigator.platform.includes("Mac");
 
+function modLabel(): string {
+  return isMac ? "Cmd" : "Ctrl";
+}
+
+function showShortcutHelp() {
+  const mod = modLabel();
+  alert(
+    [
+      "Keyboard Shortcuts",
+      "",
+      `${mod}+P  Open file palette`,
+      `${mod}+S  Save`,
+      `${mod}+N  New file`,
+      `${mod}+O  Open vault`,
+      `${mod}+W  Close tab`,
+      `${mod}+Tab / ${mod}+Shift+Tab  Next/Prev tab`,
+      `${mod}+1..9  Jump to tab`,
+      `${mod}+,  Font settings`,
+      `${mod}+?  Show this shortcuts help`,
+      `${mod}+Shift+E  Toggle sidebar`,
+      `${mod}+Z / ${mod}+Shift+Z  Undo/Redo`,
+      "",
+      "Editor",
+      "Shift+Enter  Cycle task state",
+      `${mod}+B  Bold`,
+      `${mod}+I  Italic`,
+      mod + "+`  Inline code",
+      `${mod}+K  Insert link`,
+    ].join("\n")
+  );
+}
+
 function isModKey(e: KeyboardEvent): boolean {
   return isMac ? e.metaKey : e.ctrlKey;
 }
@@ -174,6 +206,12 @@ export function registerGlobalShortcuts(
       if (isFormControlTarget(e.target)) return;
 
       if (!isModKey(e)) return;
+
+      if (e.key === "?" || (e.key === "/" && e.shiftKey)) {
+        e.preventDefault();
+        showShortcutHelp();
+        return;
+      }
 
       switch (e.key.toLowerCase()) {
         case "p":

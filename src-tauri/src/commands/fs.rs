@@ -88,16 +88,18 @@ pub async fn write_file(
 pub async fn create_file(
     path: String,
     vault_state: State<'_, Mutex<VaultState>>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let vault_root = current_vault_root(&vault_state)?;
     let resolved = resolve_new_path(&path, &vault_root)?;
+
     tokio::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(&resolved)
         .await
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    Ok(resolved.to_string_lossy().to_string())
 }
 
 #[tauri::command]

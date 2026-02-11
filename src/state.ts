@@ -502,12 +502,10 @@ export class AppState {
       return;
     }
 
-    const path = this.vaultPath + "/" + fileName;
-
     try {
-      await createFileOnDisk(path);
+      const createdPath = await createFileOnDisk(fileName);
       await this.refreshVaultTree();
-      await this.openFile(path);
+      await this.openFile(createdPath);
     } catch (err) {
       alert(
         `Could not create file: ${
