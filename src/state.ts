@@ -10,6 +10,20 @@ import {
 
 type EventCallback = (...args: any[]) => void;
 
+function normalizeNewFileName(rawName: string): string | null {
+  const name = rawName.trim();
+  if (!name) return null;
+  if (
+    name.includes("/") ||
+    name.includes("\\") ||
+    name.includes("..") ||
+    name.includes("\0")
+  ) {
+    return null;
+  }
+  return name.endsWith(".md") ? name : `${name}.md`;
+}
+
 export interface TabState {
   path: string;
   name: string;
@@ -45,13 +59,13 @@ export class AppState {
     const path = await openVaultDialog();
     if (!path) return;
     this.vaultPath = path;
-    this.vaultTree = await getVaultTree(path);
+    this.vaultTree = await getVaultTree();
     this.emit("vault-loaded");
   }
 
   async refreshVaultTree() {
     if (!this.vaultPath) return;
-    this.vaultTree = await getVaultTree(this.vaultPath);
+    this.vaultTree = await getVaultTree();
     this.emit("vault-loaded");
   }
 
@@ -157,14 +171,27 @@ export class AppState {
   async createNewFile() {
     if (!this.vaultPath) return;
     const name = prompt("File name:", "Untitled.md");
-    if (!name) return;
+    if (name === null) return;
 
-    const fileName = name.endsWith(".md") ? name : name + ".md";
+    const fileName = normalizeNewFileName(name);
+    if (!fileName) {
+      alert("Use a simple file name without slashes or '..'.");
+      return;
+    }
+
     const path = this.vaultPath + "/" + fileName;
 
-    await createFileOnDisk(path);
-    await this.refreshVaultTree();
-    await this.openFile(path);
+    try {
+      await createFileOnDisk(path);
+      await this.refreshVaultTree();
+      await this.openFile(path);
+    } catch (err) {
+      alert(
+        `Could not create file: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+    }
   }
 
   toggleSidebar() {

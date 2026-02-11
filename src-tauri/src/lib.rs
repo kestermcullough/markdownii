@@ -7,6 +7,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(watcher::WatcherState::new()))
+        .manage(Mutex::new(commands::vault::VaultState::new()))
         .invoke_handler(tauri::generate_handler![
             commands::vault::open_vault,
             commands::vault::get_vault_tree,

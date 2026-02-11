@@ -11,8 +11,8 @@ export async function openVaultDialog(): Promise<string | null> {
   return invoke<string | null>("open_vault");
 }
 
-export async function getVaultTree(path: string): Promise<FileEntry[]> {
-  return invoke<FileEntry[]>("get_vault_tree", { path });
+export async function getVaultTree(): Promise<FileEntry[]> {
+  return invoke<FileEntry[]>("get_vault_tree");
 }
 
 export async function readFile(path: string): Promise<string> {
@@ -41,6 +41,6 @@ export async function renameFile(
   return invoke("rename_file", { oldPath, newPath });
 }
 
-export async function startWatching(vaultPath: string): Promise<void> {
-  return invoke("start_watching", { vaultPath });
+export async function startWatching(): Promise<void> {
+  return invoke("start_watching");
 }
