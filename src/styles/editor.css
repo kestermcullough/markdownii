@@ -62,6 +62,13 @@
   cursor: pointer;
 }
 
+.cm-md-highlight {
+  background: rgba(224, 175, 104, 0.3);
+  color: var(--text-primary);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
 .cm-md-bullet {
   color: var(--tn-cyan);
   font-size: 1.2em;
