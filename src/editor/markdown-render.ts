@@ -6,7 +6,7 @@ import {
   EditorView,
 } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
-import type { Range } from "@codemirror/state";
+import type { EditorState, Range } from "@codemirror/state";
 import { RangeSetBuilder } from "@codemirror/state";
 import type { SyntaxNodeRef } from "@lezer/common";
 import { buildHeadingDecos } from "./decorations/headings";
@@ -18,6 +18,67 @@ import { buildBlockquoteDecos } from "./decorations/blockquotes";
 import { buildHorizontalRuleDecos } from "./decorations/horizontal-rule";
 import { isCursorInRange, isCursorOnLine } from "./cursor-utils";
 
+function cursorContextSignature(state: EditorState, pos: number): string {
+  const lineNumber = state.doc.lineAt(pos).number;
+  const interestingAncestors: string[] = [];
+  let node = syntaxTree(state).resolveInner(pos, -1);
+  while (true) {
+    const typeName = node.type.name;
+    if (
+      typeName.startsWith("ATXHeading") ||
+      typeName === "Emphasis" ||
+      typeName === "StrongEmphasis" ||
+      typeName === "InlineCode" ||
+      typeName === "Link" ||
+      typeName === "ListItem" ||
+      typeName === "Blockquote" ||
+      typeName === "HorizontalRule"
+    ) {
+      interestingAncestors.push(typeName);
+    }
+    const parent = node.parent;
+    if (!parent) break;
+    node = parent;
+  }
+
+  return `${lineNumber}|${interestingAncestors.join(">")}`;
+}
+
+function shouldRebuildForSelection(update: ViewUpdate): boolean {
+  const prevSelection = update.startState.selection;
+  const nextSelection = update.state.selection;
+
+  if (prevSelection.ranges.length !== nextSelection.ranges.length) {
+    return true;
+  }
+
+  const prevMain = prevSelection.main;
+  const nextMain = nextSelection.main;
+  if (
+    prevMain.anchor === nextMain.anchor &&
+    prevMain.head === nextMain.head
+  ) {
+    return false;
+  }
+
+  if (prevMain.empty !== nextMain.empty) {
+    return true;
+  }
+
+  const prevAnchorSig = cursorContextSignature(
+    update.startState,
+    prevMain.anchor
+  );
+  const nextAnchorSig = cursorContextSignature(update.state, nextMain.anchor);
+  if (prevAnchorSig !== nextAnchorSig) {
+    return true;
+  }
+
+  const prevHeadSig = cursorContextSignature(update.startState, prevMain.head);
+  const nextHeadSig = cursorContextSignature(update.state, nextMain.head);
+  return prevHeadSig !== nextHeadSig;
+}
+
 class MarkdownRenderPlugin {
   decorations: DecorationSet;
 
@@ -26,11 +87,12 @@ class MarkdownRenderPlugin {
   }
 
   update(update: ViewUpdate) {
-    if (
-      update.docChanged ||
-      update.selectionSet ||
-      update.viewportChanged
-    ) {
+    if (update.docChanged || update.viewportChanged) {
+      this.decorations = this.buildDecorations(update.view);
+      return;
+    }
+
+    if (update.selectionSet && shouldRebuildForSelection(update)) {
       this.decorations = this.buildDecorations(update.view);
     }
   }

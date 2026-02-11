@@ -1,5 +1,5 @@
 import { EditorView } from "@codemirror/view";
-import { AppState } from "./state";
+import { AppState, countWords } from "./state";
 import { createEditor } from "./editor/setup";
 import { Sidebar } from "./ui/sidebar";
 import { TabBar } from "./ui/tab-bar";
@@ -82,6 +82,7 @@ function init() {
 
   // Track current editor
   let currentEditor: EditorView | null = null;
+  let scratchWordCount = countWords(SAMPLE_MD);
 
   // Handle tab switching: swap the editor view
   state.on("active-tab-changed", () => {
@@ -110,7 +111,14 @@ function init() {
         editorArea,
         tab.content,
         () => state.markDirty(tab.path),
-        editorKeymap()
+        editorKeymap(),
+        EditorView.updateListener.of((update) => {
+          if (!update.docChanged && !update.selectionSet) return;
+          if (update.docChanged) {
+            tab.wordCount = countWords(update.state.doc.toString());
+          }
+          updateStatusBar(update.view, statusBar, tab.wordCount);
+        })
       );
     } else {
       // Re-attach existing editor
@@ -128,7 +136,7 @@ function init() {
     currentEditor.focus();
 
     // Update status bar
-    updateStatusBar(currentEditor, statusBar);
+    updateStatusBar(currentEditor, statusBar, tab.wordCount);
   });
 
   // Register global shortcuts
@@ -139,24 +147,22 @@ function init() {
     editorArea,
     SAMPLE_MD,
     undefined,
-    editorKeymap()
+    editorKeymap(),
+    EditorView.updateListener.of((update) => {
+      if (!update.docChanged && !update.selectionSet) return;
+      if (update.docChanged) {
+        scratchWordCount = countWords(update.state.doc.toString());
+      }
+      updateStatusBar(update.view, statusBar, scratchWordCount);
+    })
   );
   currentEditor = scratchEditor;
-
-  // Update status bar on editor changes
-  editorArea.addEventListener("keyup", () => {
-    if (currentEditor) updateStatusBar(currentEditor, statusBar);
-  });
-  editorArea.addEventListener("click", () => {
-    if (currentEditor) updateStatusBar(currentEditor, statusBar);
-  });
+  updateStatusBar(scratchEditor, statusBar, scratchWordCount);
 }
 
-function updateStatusBar(view: EditorView, statusBar: StatusBar) {
+function updateStatusBar(view: EditorView, statusBar: StatusBar, words: number) {
   const pos = view.state.selection.main.head;
   const line = view.state.doc.lineAt(pos);
-  const text = view.state.doc.toString();
-  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
   statusBar.update(line.number, pos - line.from + 1, words);
 }
 

@@ -19,7 +19,7 @@ import { markdownRenderPlugin } from "./markdown-render";
 export function createEditor(
   parent: HTMLElement,
   doc: string = "",
-  onChange?: (content: string) => void,
+  onChange?: () => void,
   ...extraExtensions: Extension[]
 ): EditorView {
   const extensions: Extension[] = [
@@ -52,7 +52,7 @@ export function createEditor(
     extensions.push(
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
-          onChange(update.state.doc.toString());
+          onChange();
         }
       })
     );

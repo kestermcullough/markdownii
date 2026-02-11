@@ -9,6 +9,9 @@ export class CommandPalette {
   private visible = false;
   private selectedIndex = 0;
   private currentResults: FileEntry[] = [];
+  private allFiles: FileEntry[] = [];
+  private searchIndex: { file: FileEntry; nameLower: string; pathLower: string }[] =
+    [];
 
   constructor(private state: AppState) {
     this.root = document.createElement("div");
@@ -34,6 +37,15 @@ export class CommandPalette {
     this.root.addEventListener("click", (e) => {
       if (e.target === this.root) this.hide();
     });
+
+    this.state.on("vault-loaded", () => {
+      this.rebuildFileCache();
+      if (this.visible) {
+        this.currentResults = this.getAllFiles();
+        this.selectedIndex = 0;
+        this.renderResults();
+      }
+    });
   }
 
   mount(parent: HTMLElement) {
@@ -41,6 +53,7 @@ export class CommandPalette {
   }
 
   show() {
+    this.rebuildFileCache();
     this.visible = true;
     this.root.style.display = "flex";
     this.input.value = "";
@@ -64,11 +77,12 @@ export class CommandPalette {
     if (!query) {
       this.currentResults = this.getAllFiles();
     } else {
-      this.currentResults = this.getAllFiles().filter(
-        (f) =>
-          f.name.toLowerCase().includes(query) ||
-          f.path.toLowerCase().includes(query)
-      );
+      this.currentResults = this.searchIndex
+        .filter(
+          ({ nameLower, pathLower }) =>
+            nameLower.includes(query) || pathLower.includes(query)
+        )
+        .map(({ file }) => file);
     }
     this.selectedIndex = 0;
     this.renderResults();
@@ -99,7 +113,16 @@ export class CommandPalette {
   }
 
   private getAllFiles(): FileEntry[] {
-    return flattenTree(this.state.vaultTree);
+    return this.allFiles;
+  }
+
+  private rebuildFileCache() {
+    this.allFiles = flattenTree(this.state.vaultTree);
+    this.searchIndex = this.allFiles.map((file) => ({
+      file,
+      nameLower: file.name.toLowerCase(),
+      pathLower: file.path.toLowerCase(),
+    }));
   }
 
   private renderResults() {

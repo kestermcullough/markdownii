@@ -10,6 +10,11 @@ import {
 
 type EventCallback = (...args: any[]) => void;
 
+export function countWords(text: string): number {
+  const trimmed = text.trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+}
+
 function normalizeNewFileName(rawName: string): string | null {
   const name = rawName.trim();
   if (!name) return null;
@@ -28,6 +33,7 @@ export interface TabState {
   path: string;
   name: string;
   content: string;
+  wordCount: number;
   dirty: boolean;
   editorView: EditorView | null;
   scrollTop: number;
@@ -84,6 +90,7 @@ export class AppState {
       path,
       name,
       content,
+      wordCount: countWords(content),
       dirty: false,
       editorView: null,
       scrollTop: 0,
@@ -133,6 +140,7 @@ export class AppState {
     const content = tab.editorView.state.doc.toString();
     await writeFile(tab.path, content);
     tab.content = content;
+    tab.wordCount = countWords(content);
     tab.dirty = false;
     this.emit("tabs-changed");
   }
