@@ -50,6 +50,14 @@ function showShortcutHelp() {
   );
 }
 
+function isShortcutHelpEvent(e: KeyboardEvent): boolean {
+  if (!isModKey(e)) return false;
+  if (e.key === "?") return true;
+  if (e.key === "/" && e.shiftKey) return true;
+  if (e.code === "Slash" && e.shiftKey) return true;
+  return false;
+}
+
 function isModKey(e: KeyboardEvent): boolean {
   return isMac ? e.metaKey : e.ctrlKey;
 }
@@ -203,15 +211,16 @@ export function registerGlobalShortcuts(
         return;
       }
 
-      if (isFormControlTarget(e.target)) return;
-
-      if (!isModKey(e)) return;
-
-      if (e.key === "?" || (e.key === "/" && e.shiftKey)) {
+      if (isShortcutHelpEvent(e)) {
         e.preventDefault();
+        e.stopPropagation();
         showShortcutHelp();
         return;
       }
+
+      if (isFormControlTarget(e.target)) return;
+
+      if (!isModKey(e)) return;
 
       switch (e.key.toLowerCase()) {
         case "p":
@@ -280,6 +289,13 @@ export function registerGlobalShortcuts(
 export function editorKeymap() {
   return Prec.highest(
     keymap.of([
+      {
+        key: "Mod-Shift-/",
+        run: () => {
+          showShortcutHelp();
+          return true;
+        },
+      },
       {
         key: "Shift-Enter",
         run: (view: EditorView) => cycleChecklistState(view),
