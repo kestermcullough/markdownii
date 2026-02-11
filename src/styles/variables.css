@@ -1,32 +1,34 @@
 :root {
+  /* Tokyo Night - Night variant */
+
   /* Background colors */
-  --bg-primary: #1e1e1e;
-  --bg-secondary: #252525;
-  --bg-tertiary: #2d2d2d;
-  --bg-hover: #353535;
-  --bg-active: #3e3e3e;
+  --bg-primary: #1a1b26;
+  --bg-secondary: #16161e;
+  --bg-tertiary: #1f2335;
+  --bg-hover: #283457;
+  --bg-active: #3d59a1;
 
   /* Text colors */
-  --text-primary: #dcddde;
-  --text-secondary: #a0a0a0;
-  --text-muted: #777;
-  --text-faint: #555;
+  --text-primary: #c0caf5;
+  --text-secondary: #a9b1d6;
+  --text-muted: #565f89;
+  --text-faint: #3b4261;
 
-  /* Accent */
-  --accent: #7f6df2;
-  --accent-hover: #8b7cf3;
-  --link-color: #7f6df2;
-  --link-color-faded: rgba(127, 109, 242, 0.4);
+  /* Accent - Tokyo Night blue */
+  --accent: #7aa2f7;
+  --accent-hover: #89b4fa;
+  --link-color: #7aa2f7;
+  --link-color-faded: rgba(122, 162, 247, 0.4);
 
   /* Borders */
-  --border-color: #333;
-  --divider-color: #2a2a2a;
+  --border-color: #1f2335;
+  --divider-color: #16161e;
 
   /* Code */
-  --code-bg: rgba(255, 255, 255, 0.06);
+  --code-bg: rgba(122, 162, 247, 0.1);
 
   /* Blockquote */
-  --blockquote-border: #555;
+  --blockquote-border: #3d59a1;
 
   /* Fonts */
   --font-text: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -38,4 +40,15 @@
   --sidebar-width: 250px;
   --tab-height: 36px;
   --status-height: 24px;
+
+  /* Extra Tokyo Night colors for markdown elements */
+  --tn-blue: #7aa2f7;
+  --tn-purple: #9d7cd8;
+  --tn-cyan: #7dcfff;
+  --tn-green: #9ece6a;
+  --tn-red: #f7768e;
+  --tn-yellow: #e0af68;
+  --tn-orange: #ff9e64;
+  --tn-magenta: #bb9af7;
+  --tn-teal: #73daca;
 }

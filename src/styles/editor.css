@@ -20,31 +20,31 @@
 }
 
 .editor-area .cm-activeLine {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(192, 202, 245, 0.03);
 }
 
 .editor-area .cm-selectionBackground {
-  background: rgba(127, 109, 242, 0.2) !important;
+  background: #283457 !important;
 }
 
 .editor-area .cm-cursor {
-  border-left-color: var(--accent);
+  border-left-color: var(--text-primary);
 }
 
 .editor-area .cm-gutters {
   display: none;
 }
 
-/* Markdown inline rendering styles */
-.cm-md-heading1 { font-size: 2em; font-weight: 700; line-height: 1.2; }
-.cm-md-heading2 { font-size: 1.6em; font-weight: 700; line-height: 1.3; }
-.cm-md-heading3 { font-size: 1.3em; font-weight: 600; line-height: 1.4; }
-.cm-md-heading4 { font-size: 1.1em; font-weight: 600; }
-.cm-md-heading5 { font-size: 1em; font-weight: 600; }
+/* Markdown inline rendering styles - Tokyo Night colors */
+.cm-md-heading1 { font-size: 2em; font-weight: 700; line-height: 1.2; color: var(--tn-blue); }
+.cm-md-heading2 { font-size: 1.6em; font-weight: 700; line-height: 1.3; color: var(--tn-cyan); }
+.cm-md-heading3 { font-size: 1.3em; font-weight: 600; line-height: 1.4; color: var(--tn-magenta); }
+.cm-md-heading4 { font-size: 1.1em; font-weight: 600; color: var(--tn-purple); }
+.cm-md-heading5 { font-size: 1em; font-weight: 600; color: var(--tn-teal); }
 .cm-md-heading6 { font-size: 0.9em; font-weight: 600; color: var(--text-muted); }
 
-.cm-md-bold { font-weight: 700; }
-.cm-md-italic { font-style: italic; }
+.cm-md-bold { font-weight: 700; color: var(--tn-orange); }
+.cm-md-italic { font-style: italic; color: var(--tn-magenta); }
 
 .cm-md-inline-code {
   background: var(--code-bg);
@@ -52,28 +52,29 @@
   padding: 1px 4px;
   font-family: var(--font-mono);
   font-size: 0.9em;
+  color: var(--tn-green);
 }
 
 .cm-md-link {
-  color: var(--link-color);
+  color: var(--tn-blue);
   text-decoration: underline;
   text-decoration-color: var(--link-color-faded);
   cursor: pointer;
 }
 
 .cm-md-bullet {
-  color: var(--accent);
+  color: var(--tn-cyan);
   font-size: 1.2em;
 }
 
 .cm-md-blockquote {
-  border-left: 3px solid var(--blockquote-border);
+  border-left: 3px solid var(--tn-blue);
   padding-left: 12px;
   color: var(--text-secondary);
 }
 
 .cm-md-hr {
   border: none;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--text-faint);
   margin: 8px 0;
 }
