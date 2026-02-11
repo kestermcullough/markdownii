@@ -1,4 +1,8 @@
-import type { AppState } from "../state";
+import {
+  DEFAULT_EDITOR_SETTINGS,
+  type AppState,
+  type EditorSettings,
+} from "../state";
 
 interface FontOption {
   label: string;
@@ -19,10 +23,6 @@ const TEXT_FONT_OPTIONS: FontOption[] = [
     label: "Humanist Sans",
     value: '"Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif',
   },
-  {
-    label: "Source Sans",
-    value: '"Source Sans 3", "Segoe UI", Roboto, sans-serif',
-  },
 ];
 
 const MONO_FONT_OPTIONS: FontOption[] = [
@@ -36,14 +36,20 @@ const MONO_FONT_OPTIONS: FontOption[] = [
     value: '"JetBrains Mono", "Cascadia Code", Consolas, monospace',
   },
   {
-    label: "IBM Plex Mono",
-    value: '"IBM Plex Mono", "Fira Mono", Menlo, monospace',
-  },
-  {
-    label: "Courier",
-    value: '"Courier Prime", "Courier New", Courier, monospace',
+    label: "Consolas",
+    value: 'Consolas, "Cascadia Code", monospace',
   },
 ];
+
+function clampNumber(value: number, min: number, max: number, fallback: number) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeSettingText(value: string, fallback: string): string {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : fallback;
+}
 
 function createOptions(select: HTMLSelectElement, options: FontOption[]) {
   for (const option of options) {
@@ -65,11 +71,6 @@ function ensureValueOption(select: HTMLSelectElement, value: string) {
   select.value = value;
 }
 
-function normalizedFontInput(value: string, fallback: string): string {
-  const trimmed = value.trim();
-  return trimmed ? trimmed : fallback;
-}
-
 export class FontSelector {
   root: HTMLElement;
   private panel: HTMLElement;
@@ -82,6 +83,7 @@ export class FontSelector {
   private sizeValue: HTMLElement;
   private lineHeightValue: HTMLElement;
   private visible = false;
+  private draft: EditorSettings | null = null;
 
   constructor(private state: AppState) {
     this.root = document.createElement("div");
@@ -98,7 +100,7 @@ export class FontSelector {
     const subtitle = document.createElement("p");
     subtitle.className = "font-selector-subtitle";
     subtitle.textContent =
-      "Preview applies instantly and is saved automatically. You can type any system font stack.";
+      "Pick a preset or type your own font stack. Changes apply only when you press Apply.";
 
     this.textSelect = document.createElement("select");
     this.textSelect.className = "font-selector-select";
@@ -160,15 +162,21 @@ export class FontSelector {
     const resetBtn = document.createElement("button");
     resetBtn.className = "font-selector-btn";
     resetBtn.textContent = "Reset";
-    resetBtn.addEventListener("click", () => this.state.resetSettings());
+    resetBtn.addEventListener("click", () => this.resetDraft());
 
-    const closeBtn = document.createElement("button");
-    closeBtn.className = "font-selector-btn font-selector-btn-primary";
-    closeBtn.textContent = "Close";
-    closeBtn.addEventListener("click", () => this.hide());
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "font-selector-btn";
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.addEventListener("click", () => this.hide());
+
+    const applyBtn = document.createElement("button");
+    applyBtn.className = "font-selector-btn font-selector-btn-primary";
+    applyBtn.textContent = "Apply";
+    applyBtn.addEventListener("click", () => this.applyAndClose());
 
     actions.appendChild(resetBtn);
-    actions.appendChild(closeBtn);
+    actions.appendChild(cancelBtn);
+    actions.appendChild(applyBtn);
     this.panel.appendChild(actions);
 
     this.root.appendChild(this.panel);
@@ -178,21 +186,44 @@ export class FontSelector {
     });
 
     this.textSelect.addEventListener("change", () => {
+      if (!this.draft) return;
+      this.draft.fontText = this.textSelect.value;
       this.textCustomInput.value = this.textSelect.value;
-      this.applyCurrent();
+      this.renderDraftValues();
     });
+
     this.monoSelect.addEventListener("change", () => {
+      if (!this.draft) return;
+      this.draft.fontMono = this.monoSelect.value;
       this.monoCustomInput.value = this.monoSelect.value;
-      this.applyCurrent();
+      this.renderDraftValues();
     });
 
-    this.textCustomInput.addEventListener("input", () => this.applyCurrent());
-    this.monoCustomInput.addEventListener("input", () => this.applyCurrent());
+    this.textCustomInput.addEventListener("input", () => {
+      if (!this.draft) return;
+      this.draft.fontText = this.textCustomInput.value;
+    });
 
-    this.sizeInput.addEventListener("input", () => this.applyCurrent());
-    this.lineHeightInput.addEventListener("input", () => this.applyCurrent());
+    this.monoCustomInput.addEventListener("input", () => {
+      if (!this.draft) return;
+      this.draft.fontMono = this.monoCustomInput.value;
+    });
 
-    this.state.on("settings-changed", () => this.syncFromState());
+    this.sizeInput.addEventListener("input", () => {
+      if (!this.draft) return;
+      const next = Number.parseFloat(this.sizeInput.value);
+      if (!Number.isFinite(next)) return;
+      this.draft.fontSize = next;
+      this.renderDraftValues();
+    });
+
+    this.lineHeightInput.addEventListener("input", () => {
+      if (!this.draft) return;
+      const next = Number.parseFloat(this.lineHeightInput.value);
+      if (!Number.isFinite(next)) return;
+      this.draft.lineHeight = next;
+      this.renderDraftValues();
+    });
   }
 
   mount(parent: HTMLElement) {
@@ -200,7 +231,8 @@ export class FontSelector {
   }
 
   show() {
-    this.syncFromState();
+    this.draft = { ...this.state.settings };
+    this.syncControlsFromDraft();
     this.visible = true;
     this.root.style.display = "flex";
     this.textSelect.focus();
@@ -209,6 +241,7 @@ export class FontSelector {
   hide() {
     this.visible = false;
     this.root.style.display = "none";
+    this.draft = null;
   }
 
   isVisible() {
@@ -256,26 +289,60 @@ export class FontSelector {
     return row;
   }
 
-  private syncFromState() {
-    const settings = this.state.settings;
-    ensureValueOption(this.textSelect, settings.fontText);
-    ensureValueOption(this.monoSelect, settings.fontMono);
-    this.textCustomInput.value = settings.fontText;
-    this.monoCustomInput.value = settings.fontMono;
-    this.sizeInput.value = String(settings.fontSize);
-    this.lineHeightInput.value = String(settings.lineHeight);
-    this.sizeValue.textContent = `${settings.fontSize}px`;
-    this.lineHeightValue.textContent = settings.lineHeight.toFixed(2);
+  private renderDraftValues() {
+    if (!this.draft) return;
+    this.sizeValue.textContent = `${Math.round(this.draft.fontSize)}px`;
+    this.lineHeightValue.textContent = this.draft.lineHeight.toFixed(2);
   }
 
-  private applyCurrent() {
-    const fontSize = Number.parseFloat(this.sizeInput.value);
-    const lineHeight = Number.parseFloat(this.lineHeightInput.value);
-    this.state.updateSettings({
-      fontText: normalizedFontInput(this.textCustomInput.value, this.textSelect.value),
-      fontMono: normalizedFontInput(this.monoCustomInput.value, this.monoSelect.value),
-      fontSize: Number.isFinite(fontSize) ? fontSize : undefined,
-      lineHeight: Number.isFinite(lineHeight) ? lineHeight : undefined,
-    });
+  private syncControlsFromDraft() {
+    if (!this.draft) return;
+
+    ensureValueOption(this.textSelect, this.draft.fontText);
+    ensureValueOption(this.monoSelect, this.draft.fontMono);
+    this.textCustomInput.value = this.draft.fontText;
+    this.monoCustomInput.value = this.draft.fontMono;
+    this.sizeInput.value = String(this.draft.fontSize);
+    this.lineHeightInput.value = String(this.draft.lineHeight);
+    this.renderDraftValues();
+  }
+
+  private resetDraft() {
+    if (!this.draft) return;
+    this.draft = { ...DEFAULT_EDITOR_SETTINGS };
+    this.syncControlsFromDraft();
+  }
+
+  private applyAndClose() {
+    if (!this.draft) {
+      this.hide();
+      return;
+    }
+
+    const next: EditorSettings = {
+      fontText: normalizeSettingText(
+        this.draft.fontText,
+        DEFAULT_EDITOR_SETTINGS.fontText
+      ),
+      fontMono: normalizeSettingText(
+        this.draft.fontMono,
+        DEFAULT_EDITOR_SETTINGS.fontMono
+      ),
+      fontSize: clampNumber(
+        this.draft.fontSize,
+        12,
+        26,
+        DEFAULT_EDITOR_SETTINGS.fontSize
+      ),
+      lineHeight: clampNumber(
+        this.draft.lineHeight,
+        1.2,
+        2.2,
+        DEFAULT_EDITOR_SETTINGS.lineHeight
+      ),
+    };
+
+    this.state.updateSettings(next);
+    this.hide();
   }
 }
