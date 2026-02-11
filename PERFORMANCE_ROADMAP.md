@@ -38,8 +38,8 @@ Goal: reduce work per edit and avoid full rescans for file-system updates.
   - Debounce full-document operations (word count + history snapshot conversions) so they don’t run on every keystroke.
 - [ ] **Incremental vault index in Rust**
   - Keep an in-memory tree/index and apply watcher deltas instead of full `get_vault_tree()` recursion on each refresh.
-- [ ] **Ignore heavy directories at source**
-  - Skip `.git`, `node_modules`, `.obsidian`, `target`, etc., when indexing/watching.
+- [x] **Ignore heavy directories at source**
+  - Skip heavy build/dependency directories (currently `node_modules`, `target`, `dist`, `build`) during vault indexing.
 - [ ] **Structured watcher events**
   - Emit typed file-change deltas (create/delete/rename/change) instead of raw path lists.
 

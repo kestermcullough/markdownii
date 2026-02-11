@@ -68,6 +68,13 @@ pub async fn get_vault_tree(
     read_dir_recursive(&root)
 }
 
+fn should_skip_directory(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "node_modules" | "target" | "dist" | "build"
+    )
+}
+
 fn read_dir_recursive(dir: &Path) -> Result<Vec<FileEntry>, String> {
     let mut entries = Vec::new();
 
@@ -84,6 +91,10 @@ fn read_dir_recursive(dir: &Path) -> Result<Vec<FileEntry>, String> {
         }
 
         if path.is_dir() {
+            if should_skip_directory(&name) {
+                continue;
+            }
+
             let children = read_dir_recursive(&path)?;
             // Only include directories that contain .md files (directly or nested)
             if !children.is_empty() {

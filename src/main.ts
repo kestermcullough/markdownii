@@ -1,6 +1,6 @@
 import { EditorView } from "@codemirror/view";
 import { getFileName } from "./path-utils";
-import { AppState, countWords } from "./state";
+import { AppState, countWords, type TabState } from "./state";
 import { createEditor } from "./editor/setup";
 import { Sidebar } from "./ui/sidebar";
 import { TabBar } from "./ui/tab-bar";
@@ -38,6 +38,8 @@ A [link to something](https://example.com) renders inline.
 - Another bullet
   - Nested bullet
 `;
+
+const WORD_COUNT_DEBOUNCE_MS = 220;
 
 function init() {
   const app = document.getElementById("app")!;
@@ -151,6 +153,37 @@ function init() {
   // Track current editor
   let currentEditor: EditorView | null = null;
   let scratchWordCount = countWords(SAMPLE_MD);
+  let scratchWordCountTimerId: number | null = null;
+
+  const tabWordCountTimerIds = new Map<string, number>();
+
+  const scheduleTabWordCount = (tab: TabState, text: string) => {
+    const previousTimerId = tabWordCountTimerIds.get(tab.path);
+    if (previousTimerId !== undefined) {
+      window.clearTimeout(previousTimerId);
+    }
+
+    const timerId = window.setTimeout(() => {
+      tab.wordCount = countWords(text);
+      tabWordCountTimerIds.delete(tab.path);
+
+      if (state.activeFilePath === tab.path && tab.editorView) {
+        updateStatusBar(tab.editorView, statusBar, tab.wordCount);
+      }
+    }, WORD_COUNT_DEBOUNCE_MS);
+
+    tabWordCountTimerIds.set(tab.path, timerId);
+  };
+
+  state.on("tabs-changed", () => {
+    const openPaths = new Set(state.openTabs.map((tab) => tab.path));
+    for (const [path, timerId] of tabWordCountTimerIds) {
+      if (!openPaths.has(path)) {
+        window.clearTimeout(timerId);
+        tabWordCountTimerIds.delete(path);
+      }
+    }
+  });
 
   // Handle tab switching: swap the editor view
   state.on("active-tab-changed", () => {
@@ -185,7 +218,7 @@ function init() {
           if (update.docChanged) {
             const beforeText = update.startState.doc.toString();
             const nextText = update.state.doc.toString();
-            tab.wordCount = countWords(nextText);
+            scheduleTabWordCount(tab, nextText);
             state.recordDocChange(tab.path, beforeText, nextText);
             if (!state.isApplyingHistory(tab.path)) {
               state.syncDirtyFromContent(tab.path, nextText);
@@ -225,7 +258,17 @@ function init() {
     EditorView.updateListener.of((update) => {
       if (!update.docChanged && !update.selectionSet) return;
       if (update.docChanged) {
-        scratchWordCount = countWords(update.state.doc.toString());
+        const nextText = update.state.doc.toString();
+        if (scratchWordCountTimerId !== null) {
+          window.clearTimeout(scratchWordCountTimerId);
+        }
+        scratchWordCountTimerId = window.setTimeout(() => {
+          scratchWordCount = countWords(nextText);
+          scratchWordCountTimerId = null;
+          if (currentEditor === scratchEditor) {
+            updateStatusBar(scratchEditor, statusBar, scratchWordCount);
+          }
+        }, WORD_COUNT_DEBOUNCE_MS);
       }
       updateStatusBar(update.view, statusBar, scratchWordCount);
     })
