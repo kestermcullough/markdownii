@@ -15,6 +15,7 @@ import {
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { obsidianTheme } from "./theme";
 import { markdownRenderPlugin } from "./markdown-render";
+import { selectionWrapOnType } from "./selection-wrap";
 
 export function createEditor(
   parent: HTMLElement,
@@ -29,6 +30,7 @@ export function createEditor(
     drawSelection(),
     highlightActiveLine(),
     EditorView.lineWrapping,
+    selectionWrapOnType,
 
     // Keymaps
     keymap.of([
