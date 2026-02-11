@@ -69,6 +69,13 @@
   padding: 0 2px;
 }
 
+.cm-md-strike {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--tn-red);
+  color: var(--text-secondary);
+}
+
 .cm-md-bullet {
   color: var(--tn-cyan);
   font-size: 1.2em;

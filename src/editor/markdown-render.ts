@@ -20,11 +20,16 @@ import {
   buildHighlightDecos,
   isCursorInsideHighlight,
 } from "./decorations/highlight";
+import {
+  buildStrikethroughDecos,
+  isCursorInsideStrikethrough,
+} from "./decorations/strikethrough";
 import { isCursorInRange, isCursorOnLine } from "./cursor-utils";
 
 function cursorContextSignature(state: EditorState, pos: number): string {
   const lineNumber = state.doc.lineAt(pos).number;
   const isInHighlight = isCursorInsideHighlight(state, pos) ? "1" : "0";
+  const isInStrike = isCursorInsideStrikethrough(state, pos) ? "1" : "0";
   const interestingAncestors: string[] = [];
   let node = syntaxTree(state).resolveInner(pos, -1);
   while (true) {
@@ -46,7 +51,7 @@ function cursorContextSignature(state: EditorState, pos: number): string {
     node = parent;
   }
 
-  return `${lineNumber}|hl:${isInHighlight}|${interestingAncestors.join(">")}`;
+  return `${lineNumber}|hl:${isInHighlight}|st:${isInStrike}|${interestingAncestors.join(">")}`;
 }
 
 function shouldRebuildForSelection(update: ViewUpdate): boolean {
@@ -175,6 +180,16 @@ class MarkdownRenderPlugin {
 
       decos.push(
         ...buildHighlightDecos(
+          state,
+          from,
+          to,
+          (rangeFrom, rangeTo) =>
+            isCursorInRange(cursorRanges, rangeFrom, rangeTo)
+        )
+      );
+
+      decos.push(
+        ...buildStrikethroughDecos(
           state,
           from,
           to,
