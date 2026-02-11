@@ -3,14 +3,17 @@ import type { EditorState, Range } from "@codemirror/state";
 
 const highlightMark = Decoration.mark({ class: "cm-md-highlight" });
 const hideMarker = Decoration.replace({});
+const HIGHLIGHT_PATTERN = /==(.+?)==/g;
 
 function* lineHighlightRanges(
   lineText: string,
   lineFrom: number
 ): Generator<{ from: number; to: number; textFrom: number; textTo: number }> {
-  const re = /==(.+?)==/g;
+  if (!lineText.includes("==")) return;
+
+  HIGHLIGHT_PATTERN.lastIndex = 0;
   let match: RegExpExecArray | null;
-  while ((match = re.exec(lineText)) !== null) {
+  while ((match = HIGHLIGHT_PATTERN.exec(lineText)) !== null) {
     const openFrom = lineFrom + match.index;
     const closeFrom = openFrom + match[0].length - 2;
     const textFrom = openFrom + 2;

@@ -3,14 +3,17 @@ import type { EditorState, Range } from "@codemirror/state";
 
 const strikeMark = Decoration.mark({ class: "cm-md-strike" });
 const hideMarker = Decoration.replace({});
+const STRIKE_PATTERN = /~~(.+?)~~/g;
 
 function* lineStrikeRanges(
   lineText: string,
   lineFrom: number
 ): Generator<{ from: number; to: number; textFrom: number; textTo: number }> {
-  const re = /~~(.+?)~~/g;
+  if (!lineText.includes("~~")) return;
+
+  STRIKE_PATTERN.lastIndex = 0;
   let match: RegExpExecArray | null;
-  while ((match = re.exec(lineText)) !== null) {
+  while ((match = STRIKE_PATTERN.exec(lineText)) !== null) {
     const openFrom = lineFrom + match.index;
     const closeFrom = openFrom + match[0].length - 2;
     const textFrom = openFrom + 2;

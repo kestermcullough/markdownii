@@ -3,9 +3,7 @@ import { AppState, countWords } from "./state";
 import { createEditor } from "./editor/setup";
 import { Sidebar } from "./ui/sidebar";
 import { TabBar } from "./ui/tab-bar";
-import { CommandPalette } from "./ui/command-palette";
 import { StatusBar } from "./ui/status-bar";
-import { FontSelector } from "./ui/font-selector";
 import { registerGlobalShortcuts, editorKeymap } from "./keybindings";
 
 const SAMPLE_MD = `# Welcome to MarkdownII
@@ -61,17 +59,75 @@ function init() {
   // Status bar
   const statusBar = new StatusBar(state);
 
-  // Command palette
-  const palette = new CommandPalette(state);
-  const fontSelector = new FontSelector(state);
+  // Lazy-loaded overlays (keeps startup bundle smaller)
+  let palette: {
+    mount(parent: HTMLElement): void;
+    show(): void;
+    hide(): void;
+    isVisible(): boolean;
+  } | null = null;
+
+  let fontSelector: {
+    mount(parent: HTMLElement): void;
+    show(): void;
+    hide(): void;
+    isVisible(): boolean;
+  } | null = null;
+
+  let paletteLoading: Promise<void> | null = null;
+  let fontSelectorLoading: Promise<void> | null = null;
+
+  const ensurePalette = async () => {
+    if (palette) return;
+    if (!paletteLoading) {
+      paletteLoading = import("./ui/command-palette").then(({ CommandPalette }) => {
+        palette = new CommandPalette(state);
+        palette.mount(document.body);
+      });
+    }
+    await paletteLoading;
+  };
+
+  const ensureFontSelector = async () => {
+    if (fontSelector) return;
+    if (!fontSelectorLoading) {
+      fontSelectorLoading = import("./ui/font-selector").then(({ FontSelector }) => {
+        fontSelector = new FontSelector(state);
+        fontSelector.mount(document.body);
+      });
+    }
+    await fontSelectorLoading;
+  };
+
+  const paletteController = {
+    show() {
+      void ensurePalette().then(() => palette?.show());
+    },
+    hide() {
+      palette?.hide();
+    },
+    isVisible() {
+      return palette?.isVisible() ?? false;
+    },
+  };
+
+  const fontSelectorController = {
+    show() {
+      void ensureFontSelector().then(() => fontSelector?.show());
+    },
+    hide() {
+      fontSelector?.hide();
+    },
+    isVisible() {
+      return fontSelector?.isVisible() ?? false;
+    },
+  };
 
   // Assemble layout
   layout.appendChild(sidebar.root);
   layout.appendChild(tabBar.root);
   layout.appendChild(editorArea);
   layout.appendChild(statusBar.root);
-  palette.mount(document.body);
-  fontSelector.mount(document.body);
 
   // Handle sidebar toggle
   state.on("sidebar-toggled", () => {
@@ -144,7 +200,7 @@ function init() {
   });
 
   // Register global shortcuts
-  registerGlobalShortcuts(state, palette, fontSelector);
+  registerGlobalShortcuts(state, paletteController, fontSelectorController);
 
   // Show a scratch editor on first load (before any vault is opened)
   const scratchEditor = createEditor(

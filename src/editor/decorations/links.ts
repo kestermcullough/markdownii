@@ -4,6 +4,20 @@ import type { SyntaxNodeRef } from "@lezer/common";
 import type { EditorState } from "@codemirror/state";
 
 const hideMarker = Decoration.replace({});
+const linkMarkCache = new Map<string, Decoration>();
+
+function getLinkMark(urlText: string): Decoration {
+  const cacheKey = urlText || "__empty__";
+  const cached = linkMarkCache.get(cacheKey);
+  if (cached) return cached;
+
+  const next = Decoration.mark({
+    class: "cm-md-link",
+    attributes: urlText ? { title: urlText } : undefined,
+  });
+  linkMarkCache.set(cacheKey, next);
+  return next;
+}
 
 export function buildLinkDecos(
   node: SyntaxNodeRef,
@@ -38,11 +52,7 @@ export function buildLinkDecos(
     const textTo = linkMarks[1].from;
 
     if (textFrom < textTo) {
-      const styledMark = Decoration.mark({
-        class: "cm-md-link",
-        attributes: { title: urlText },
-      });
-      result.push(styledMark.range(textFrom, textTo));
+      result.push(getLinkMark(urlText).range(textFrom, textTo));
     }
   }
 

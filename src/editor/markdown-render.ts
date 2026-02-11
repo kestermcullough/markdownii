@@ -26,12 +26,22 @@ import {
 } from "./decorations/strikethrough";
 import { isCursorInRange, isCursorOnLine } from "./cursor-utils";
 
-function cursorContextSignature(state: EditorState, pos: number): string {
+const INLINE_RENDER_MARKER_RE = /[#*_`\[\]()~>=-]/;
+
+function lineMayNeedInlineRendering(lineText: string): boolean {
+  return INLINE_RENDER_MARKER_RE.test(lineText);
+}
+
+function cursorContextSignature(
+  state: EditorState,
+  pos: number,
+  tree = syntaxTree(state)
+): string {
   const lineNumber = state.doc.lineAt(pos).number;
   const isInHighlight = isCursorInsideHighlight(state, pos) ? "1" : "0";
   const isInStrike = isCursorInsideStrikethrough(state, pos) ? "1" : "0";
   const interestingAncestors: string[] = [];
-  let node = syntaxTree(state).resolveInner(pos, -1);
+  let node = tree.resolveInner(pos, -1);
   while (true) {
     const typeName = node.type.name;
     if (
@@ -75,17 +85,34 @@ function shouldRebuildForSelection(update: ViewUpdate): boolean {
     return true;
   }
 
+  // Fast path: moving around plain text on a single line does not affect inline
+  // rendering, so skip syntax-tree work.
+  if (prevMain.empty && nextMain.empty) {
+    const prevLine = update.state.doc.lineAt(prevMain.head);
+    const nextLine = update.state.doc.lineAt(nextMain.head);
+    if (
+      prevLine.number === nextLine.number &&
+      !lineMayNeedInlineRendering(nextLine.text)
+    ) {
+      return false;
+    }
+  }
+
+  const prevTree = syntaxTree(update.startState);
+  const nextTree = syntaxTree(update.state);
+
   const prevAnchorSig = cursorContextSignature(
     update.startState,
-    prevMain.anchor
+    prevMain.anchor,
+    prevTree
   );
-  const nextAnchorSig = cursorContextSignature(update.state, nextMain.anchor);
+  const nextAnchorSig = cursorContextSignature(update.state, nextMain.anchor, nextTree);
   if (prevAnchorSig !== nextAnchorSig) {
     return true;
   }
 
-  const prevHeadSig = cursorContextSignature(update.startState, prevMain.head);
-  const nextHeadSig = cursorContextSignature(update.state, nextMain.head);
+  const prevHeadSig = cursorContextSignature(update.startState, prevMain.head, prevTree);
+  const nextHeadSig = cursorContextSignature(update.state, nextMain.head, nextTree);
   return prevHeadSig !== nextHeadSig;
 }
 
@@ -113,6 +140,28 @@ class MarkdownRenderPlugin {
     const cursorRanges = state.selection.ranges;
     const decos: Range<Decoration>[] = [];
 
+    let maybeSorted = true;
+    let lastFrom = -1;
+    let lastStartSide = Number.NEGATIVE_INFINITY;
+
+    const pushRange = (range: Range<Decoration>) => {
+      if (
+        range.from < lastFrom ||
+        (range.from === lastFrom && range.value.startSide < lastStartSide)
+      ) {
+        maybeSorted = false;
+      }
+      lastFrom = range.from;
+      lastStartSide = range.value.startSide;
+      decos.push(range);
+    };
+
+    const pushRanges = (ranges: Range<Decoration>[]) => {
+      for (const range of ranges) {
+        pushRange(range);
+      }
+    };
+
     for (const { from, to } of view.visibleRanges) {
       tree.iterate({
         from,
@@ -125,7 +174,7 @@ class MarkdownRenderPlugin {
             if (isCursorOnLine(cursorRanges, node.from, node.to, state)) {
               return;
             }
-            decos.push(...buildHeadingDecos(node, state));
+            pushRanges(buildHeadingDecos(node, state));
             return;
           }
 
@@ -133,37 +182,37 @@ class MarkdownRenderPlugin {
             case "Emphasis": {
               if (isCursorInRange(cursorRanges, node.from, node.to))
                 return;
-              decos.push(...buildEmphasisDecos(node, state, "italic"));
+              pushRanges(buildEmphasisDecos(node, state, "italic"));
               break;
             }
             case "StrongEmphasis": {
               if (isCursorInRange(cursorRanges, node.from, node.to))
                 return;
-              decos.push(...buildEmphasisDecos(node, state, "bold"));
+              pushRanges(buildEmphasisDecos(node, state, "bold"));
               break;
             }
             case "InlineCode": {
               if (isCursorInRange(cursorRanges, node.from, node.to))
                 return;
-              decos.push(...buildInlineCodeDecos(node, state));
+              pushRanges(buildInlineCodeDecos(node, state));
               break;
             }
             case "Link": {
               if (isCursorInRange(cursorRanges, node.from, node.to))
                 return;
-              decos.push(...buildLinkDecos(node, state));
+              pushRanges(buildLinkDecos(node, state));
               break;
             }
             case "ListItem": {
               if (isCursorOnLine(cursorRanges, node.from, node.from, state))
                 return;
-              decos.push(...buildListDecos(node, state));
+              pushRanges(buildListDecos(node, state));
               break;
             }
             case "Blockquote": {
               if (isCursorInRange(cursorRanges, node.from, node.to))
                 return;
-              decos.push(...buildBlockquoteDecos(node, state));
+              pushRanges(buildBlockquoteDecos(node, state));
               return false; // We handle children ourselves inside buildBlockquoteDecos
             }
             case "HorizontalRule": {
@@ -171,15 +220,15 @@ class MarkdownRenderPlugin {
                 isCursorOnLine(cursorRanges, node.from, node.to, state)
               )
                 return;
-              decos.push(...buildHorizontalRuleDecos(node, state));
+              pushRanges(buildHorizontalRuleDecos(node, state));
               break;
             }
           }
         },
       });
 
-      decos.push(
-        ...buildHighlightDecos(
+      pushRanges(
+        buildHighlightDecos(
           state,
           from,
           to,
@@ -188,8 +237,8 @@ class MarkdownRenderPlugin {
         )
       );
 
-      decos.push(
-        ...buildStrikethroughDecos(
+      pushRanges(
+        buildStrikethroughDecos(
           state,
           from,
           to,
@@ -199,18 +248,15 @@ class MarkdownRenderPlugin {
       );
     }
 
-    // Sort by position (required by RangeSetBuilder)
-    decos.sort(
-      (a, b) => a.from - b.from || a.value.startSide - b.value.startSide
-    );
+    if (!maybeSorted) {
+      decos.sort(
+        (a, b) => a.from - b.from || a.value.startSide - b.value.startSide
+      );
+    }
 
     const builder = new RangeSetBuilder<Decoration>();
     for (const d of decos) {
-      try {
-        builder.add(d.from, d.to, d.value);
-      } catch {
-        // Skip overlapping/invalid ranges
-      }
+      builder.add(d.from, d.to, d.value);
     }
     return builder.finish();
   }

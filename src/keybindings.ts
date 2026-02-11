@@ -1,7 +1,11 @@
 import { keymap, EditorView } from "@codemirror/view";
 import type { AppState } from "./state";
-import type { CommandPalette } from "./ui/command-palette";
-import type { FontSelector } from "./ui/font-selector";
+
+interface OverlayController {
+  show(): void;
+  hide(): void;
+  isVisible(): boolean;
+}
 
 const isMac = navigator.platform.includes("Mac");
 
@@ -19,8 +23,8 @@ function isFormControlTarget(target: EventTarget | null): boolean {
 
 export function registerGlobalShortcuts(
   state: AppState,
-  palette: CommandPalette,
-  fontSelector: FontSelector
+  palette: OverlayController,
+  fontSelector: OverlayController
 ) {
   document.addEventListener("keydown", (e) => {
     // Escape: close palette
