@@ -78,7 +78,42 @@
 
 .cm-md-bullet {
   color: var(--tn-cyan);
-  font-size: 1.2em;
+  font-size: 1.05em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05em;
+  margin-right: 0.1em;
+}
+
+.cm-md-task-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.95em;
+  height: 0.95em;
+  margin-right: 0.45em;
+  border: 1.5px solid rgba(169, 177, 214, 0.72);
+  border-radius: 4px;
+  background: rgba(31, 35, 53, 0.45);
+  color: transparent;
+  box-sizing: border-box;
+  font-size: 0.75em;
+  font-weight: 700;
+  transform: translateY(1px);
+}
+
+.cm-md-task-box.is-checked {
+  border-color: var(--tn-green);
+  background: rgba(158, 206, 106, 0.2);
+  color: var(--tn-green);
+}
+
+.cm-md-task-line-done {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: rgba(169, 177, 214, 0.55);
+  color: var(--text-muted);
 }
 
 .cm-md-blockquote {
