@@ -204,8 +204,6 @@ class MarkdownRenderPlugin {
               break;
             }
             case "ListItem": {
-              if (isCursorOnLine(cursorRanges, node.from, node.from, state))
-                return;
               pushRanges(buildListDecos(node, state));
               break;
             }

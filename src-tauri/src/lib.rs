@@ -2,8 +2,15 @@ use std::sync::Mutex;
 
 mod commands;
 mod watcher;
+pub mod vault_tree;
 
 pub fn run() {
+    std::panic::set_hook(Box::new(|panic_info| {
+        eprintln!("[markdownii panic] {panic_info}");
+        let backtrace = std::backtrace::Backtrace::capture();
+        eprintln!("[markdownii panic backtrace]\n{backtrace}");
+    }));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(watcher::WatcherState::new()))

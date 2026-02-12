@@ -1,5 +1,12 @@
 import { EditorView } from "@codemirror/view";
 import { getFileName } from "./path-utils";
+import {
+  METRIC_FILE_OPEN,
+  METRIC_VAULT_OPEN_TOTAL,
+  METRIC_VAULT_TREE_SCAN,
+  PerfStats,
+  type PerfSummary,
+} from "./perf-stats";
 import type { FileEntry } from "./tauri-api";
 import {
   openVaultDialog,
@@ -173,12 +180,15 @@ export class AppState {
   activeFilePath: string | null = null;
   sidebarVisible = true;
   settings: EditorSettings;
+  readonly perf = new PerfStats();
 
   private listeners = new Map<string, Set<EventCallback>>();
 
   constructor() {
     this.settings = this.loadSettings();
     this.applySettingsToDocument();
+    this.perf.onChange(() => this.emit("perf-updated", this.getPerfSummary()));
+    this.perf.installGlobalHandlers();
   }
 
   on(event: string, fn: EventCallback) {
@@ -232,6 +242,18 @@ export class AppState {
     this.persistSettings();
     this.applySettingsToDocument();
     this.emit("settings-changed", this.settings);
+  }
+
+  recordPerfDuration(
+    name: string,
+    durationMs: number,
+    context?: Record<string, unknown>
+  ) {
+    this.perf.recordDuration(name, durationMs, context);
+  }
+
+  getPerfSummary(): PerfSummary {
+    return this.perf.summary();
   }
 
   private getTabByPath(path: string): TabState | undefined {
@@ -373,11 +395,31 @@ export class AppState {
   }
 
   async openVault() {
+    const stopTotal = this.perf.startTimer(METRIC_VAULT_OPEN_TOTAL);
     const path = await openVaultDialog();
-    if (!path) return;
-    this.vaultPath = path;
-    this.vaultTree = await getVaultTree();
-    this.emit("vault-loaded");
+    if (!path) {
+      stopTotal({ cancelled: true });
+      return;
+    }
+
+    const stopTreeScan = this.perf.startTimer(METRIC_VAULT_TREE_SCAN, {
+      vaultName: getFileName(path),
+    });
+
+    try {
+      this.vaultPath = path;
+      this.vaultTree = await getVaultTree();
+      const markdownFiles = flattenTree(this.vaultTree).length;
+      const directories = countDirectories(this.vaultTree);
+      stopTreeScan({ markdownFiles, directories });
+      stopTotal({ cancelled: false, markdownFiles, directories });
+      this.emit("vault-loaded");
+    } catch (error) {
+      stopTreeScan({ failed: true });
+      stopTotal({ cancelled: false, failed: true });
+      this.perf.recordCrash("state.openVault", error);
+      throw error;
+    }
   }
 
   async refreshVaultTree() {
@@ -394,7 +436,18 @@ export class AppState {
       return;
     }
 
-    const content = await readFile(path);
+    const stopFileOpen = this.perf.startTimer(METRIC_FILE_OPEN, {
+      fileName: getFileName(path),
+    });
+    let content = "";
+    try {
+      content = await readFile(path);
+    } catch (error) {
+      stopFileOpen({ failed: true });
+      this.perf.recordCrash("state.openFile", error);
+      throw error;
+    }
+
     const name = getFileName(path);
 
     this.openTabs.push({
@@ -408,6 +461,8 @@ export class AppState {
       scrollTop: 0,
       history: createTabHistory(),
     });
+
+    stopFileOpen({ chars: content.length, words: countWords(content), failed: false });
 
     this.emit("tabs-changed");
     this.switchToTab(path);
@@ -547,4 +602,13 @@ export function flattenTree(entries: FileEntry[]): FileEntry[] {
     }
   }
   return result;
+}
+
+function countDirectories(entries: FileEntry[]): number {
+  let count = 0;
+  for (const entry of entries) {
+    if (!entry.is_dir || !entry.children) continue;
+    count += 1 + countDirectories(entry.children);
+  }
+  return count;
 }

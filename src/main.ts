@@ -1,5 +1,6 @@
 import { EditorView } from "@codemirror/view";
 import { getFileName } from "./path-utils";
+import { METRIC_APP_OPEN } from "./perf-stats";
 import { AppState, countWords, type TabState } from "./state";
 import { createEditor } from "./editor/setup";
 import { Sidebar } from "./ui/sidebar";
@@ -40,6 +41,7 @@ A [link to something](https://example.com) renders inline.
 `;
 
 const WORD_COUNT_DEBOUNCE_MS = 220;
+const APP_OPEN_START = performance.now();
 
 function init() {
   const app = document.getElementById("app")!;
@@ -275,6 +277,12 @@ function init() {
   );
   currentEditor = scratchEditor;
   updateStatusBar(scratchEditor, statusBar, scratchWordCount);
+
+  requestAnimationFrame(() => {
+    state.recordPerfDuration(METRIC_APP_OPEN, performance.now() - APP_OPEN_START, {
+      scratchWords: scratchWordCount,
+    });
+  });
 }
 
 function updateStatusBar(view: EditorView, statusBar: StatusBar, words: number) {

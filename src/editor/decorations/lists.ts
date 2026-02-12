@@ -24,7 +24,6 @@ class TaskBoxWidget extends WidgetType {
   toDOM(): HTMLElement {
     const span = document.createElement("span");
     span.className = this.checked ? "cm-md-task-box is-checked" : "cm-md-task-box";
-    span.textContent = this.checked ? "✓" : "";
     return span;
   }
 
@@ -38,7 +37,7 @@ const taskEmptyWidget = new TaskBoxWidget(false);
 const taskCheckedWidget = new TaskBoxWidget(true);
 const taskDoneMark = Decoration.mark({ class: "cm-md-task-line-done" });
 
-function parseTaskPrefix(
+export function parseTaskPrefix(
   lineText: string,
   lineFrom: number,
   listMarkFrom: number

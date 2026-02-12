@@ -20,7 +20,12 @@
 }
 
 .editor-area .cm-activeLine {
-  background: rgba(192, 202, 245, 0.03);
+  background: var(--editor-active-line);
+  border-radius: 2px;
+}
+
+.editor-area .cm-focused .cm-activeLine {
+  background: var(--editor-active-line-focused);
 }
 
 .editor-area .cm-selectionBackground {
@@ -90,37 +95,49 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 0.95em;
-  height: 0.95em;
-  margin-right: 0.45em;
-  border: 1.5px solid rgba(169, 177, 214, 0.72);
-  border-radius: 4px;
-  background: rgba(31, 35, 53, 0.45);
-  color: transparent;
+  width: 1.14em;
+  height: 1.14em;
+  margin-right: 0.5em;
+  border: 2px solid var(--task-box-border);
+  border-radius: 2px;
+  background: var(--task-box-bg);
   box-sizing: border-box;
-  font-size: 0.75em;
-  font-weight: 700;
-  transform: translateY(1px);
+  transform: translateY(-0.04em);
   cursor: pointer;
   transition: border-color 90ms ease, background-color 90ms ease;
 }
 
+.cm-md-task-box::after {
+  content: "";
+  width: 0.33em;
+  height: 0.6em;
+  border-right: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+  transform: rotate(42deg) translateY(-0.02em);
+  transform-origin: center;
+  transition: border-color 90ms ease;
+}
+
 .cm-md-task-box:hover {
-  border-color: var(--tn-cyan);
-  background: rgba(125, 207, 255, 0.12);
+  border-color: var(--task-box-border);
+  background: var(--task-box-hover);
 }
 
 .cm-md-task-box.is-checked {
-  border-color: var(--tn-green);
-  background: rgba(158, 206, 106, 0.2);
-  color: var(--tn-green);
+  border-color: var(--task-box-border);
+  background: var(--task-box-checked-bg);
+}
+
+.cm-md-task-box.is-checked::after {
+  border-right-color: var(--task-box-checked-color);
+  border-bottom-color: var(--task-box-checked-color);
 }
 
 .cm-md-task-line-done {
   text-decoration: line-through;
-  text-decoration-thickness: 1.5px;
-  text-decoration-color: rgba(169, 177, 214, 0.55);
-  color: var(--text-muted);
+  text-decoration-thickness: 1.4px;
+  text-decoration-color: rgba(199, 190, 162, 0.55);
+  color: rgba(169, 177, 214, 0.65);
 }
 
 .cm-md-blockquote {

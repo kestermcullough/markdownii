@@ -70,7 +70,19 @@ html, body {
   border-top: 1px solid var(--border-color);
   display: flex;
   align-items: center;
+  gap: 14px;
   padding: 0 12px;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.status-perf {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.status-words {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
 }

@@ -51,4 +51,13 @@
   --tn-orange: #ff9e64;
   --tn-magenta: #bb9af7;
   --tn-teal: #73daca;
+
+  /* Editor interaction */
+  --editor-active-line: rgba(218, 204, 164, 0.08);
+  --editor-active-line-focused: rgba(218, 204, 164, 0.11);
+  --task-box-border: rgba(199, 190, 162, 0.82);
+  --task-box-bg: rgba(255, 245, 220, 0.02);
+  --task-box-hover: rgba(218, 204, 164, 0.12);
+  --task-box-checked-bg: rgba(199, 190, 162, 0.14);
+  --task-box-checked-color: rgba(221, 214, 191, 0.9);
 }

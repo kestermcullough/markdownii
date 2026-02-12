@@ -20,7 +20,10 @@ const tokyoNightTheme = EditorView.theme(
         backgroundColor: "#283457",
       },
     ".cm-activeLine": {
-      backgroundColor: "rgba(192, 202, 245, 0.03)",
+      backgroundColor: "var(--editor-active-line)",
+    },
+    "&.cm-focused .cm-activeLine": {
+      backgroundColor: "var(--editor-active-line-focused)",
     },
     ".cm-gutters": {
       backgroundColor: "var(--bg-primary)",

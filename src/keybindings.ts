@@ -13,6 +13,7 @@ type ChecklistState = "none" | "point" | "empty-box" | "checked-box";
 const TASK_EMPTY_RE = /^[-*+]\s+\[ \]\s*/;
 const TASK_CHECKED_RE = /^[-*+]\s+\[[xX]\]\s*/;
 const POINT_RE = /^[-*+]\s+/;
+const TASK_CONTINUE_RE = /^(\s*[-*+]\s+)\[( |x|X)\](\s*)(.*)$/;
 
 let armedPointToNoneKey: string | null = null;
 
@@ -192,6 +193,38 @@ function cycleChecklistState(view: EditorView): boolean {
   return true;
 }
 
+function continueTaskChecklistOnEnter(view: EditorView): boolean {
+  const selection = view.state.selection;
+  if (selection.ranges.length !== 1 || !selection.main.empty) {
+    return false;
+  }
+
+  const head = selection.main.head;
+  const line = view.state.doc.lineAt(head);
+  if (head !== line.to) return false;
+
+  const match = TASK_CONTINUE_RE.exec(line.text);
+  if (!match) return false;
+
+  const rest = match[4];
+  if (!rest.trim()) {
+    // Empty checklist item: exit checklist mode.
+    view.dispatch({
+      changes: { from: line.from, to: line.to, insert: "" },
+      selection: { anchor: line.from },
+    });
+    return true;
+  }
+
+  const spacer = match[3].length ? match[3] : " ";
+  const nextPrefix = `${match[1]}[ ]${spacer}`;
+  view.dispatch({
+    changes: { from: head, to: head, insert: `\n${nextPrefix}` },
+    selection: { anchor: head + 1 + nextPrefix.length },
+  });
+  return true;
+}
+
 export function registerGlobalShortcuts(
   state: AppState,
   palette: OverlayController,
@@ -308,6 +341,10 @@ export function editorKeymap() {
       {
         key: "Shift-Enter",
         run: (view: EditorView) => cycleChecklistState(view),
+      },
+      {
+        key: "Enter",
+        run: (view: EditorView) => continueTaskChecklistOnEnter(view),
       },
       {
         key: "Mod-b",
