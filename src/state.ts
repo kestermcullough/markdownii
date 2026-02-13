@@ -9,18 +9,27 @@ import {
 } from "./perf-stats";
 import type { FileEntry } from "./tauri-api";
 import {
+  getVaultSubtree,
   openVaultDialog,
   getVaultTree,
   readFile,
+  listenFsChanges,
+  startWatching,
   writeFile,
   createFile as createFileOnDisk,
 } from "./tauri-api";
+import {
+  applyDirectorySnapshot,
+  deriveAffectedDirectories,
+} from "./vault-tree-updates";
 
 type EventCallback = (...args: any[]) => void;
 
 const SETTINGS_STORAGE_KEY = "markdownii.settings.v1";
 const HISTORY_DEBOUNCE_MS = 900;
 const MAX_HISTORY_PATCHES = 10000;
+const FS_REFRESH_DEBOUNCE_MS = 240;
+const FS_REFRESH_MAX_DIRS = 12;
 
 export interface EditorSettings {
   fontText: string;
@@ -181,6 +190,12 @@ export class AppState {
   sidebarVisible = true;
   settings: EditorSettings;
   readonly perf = new PerfStats();
+  private watcherUnlisten: (() => void) | null = null;
+  private watcherVaultPath: string | null = null;
+  private pendingFsPaths = new Set<string>();
+  private fsRefreshTimerId: number | null = null;
+  private fsRefreshInFlight = false;
+  private fsRefreshNeedsRun = false;
 
   private listeners = new Map<string, Set<EventCallback>>();
 
@@ -258,6 +273,116 @@ export class AppState {
 
   private getTabByPath(path: string): TabState | undefined {
     return this.openTabs.find((t) => t.path === path);
+  }
+
+  private clearFsRefreshTimer() {
+    if (this.fsRefreshTimerId !== null) {
+      window.clearTimeout(this.fsRefreshTimerId);
+      this.fsRefreshTimerId = null;
+    }
+  }
+
+  private stopVaultWatcher() {
+    this.clearFsRefreshTimer();
+    this.pendingFsPaths.clear();
+    this.fsRefreshInFlight = false;
+    this.fsRefreshNeedsRun = false;
+    this.watcherVaultPath = null;
+    if (!this.watcherUnlisten) return;
+    try {
+      this.watcherUnlisten();
+    } catch {
+      // Best-effort shutdown.
+    }
+    this.watcherUnlisten = null;
+  }
+
+  private onFsChange(paths: string[]) {
+    if (!this.vaultPath || paths.length === 0) return;
+    for (const path of paths) {
+      if (typeof path === "string" && path.length) {
+        this.pendingFsPaths.add(path);
+      }
+    }
+    this.scheduleFsRefresh();
+  }
+
+  private scheduleFsRefresh(delayMs: number = FS_REFRESH_DEBOUNCE_MS) {
+    this.clearFsRefreshTimer();
+    this.fsRefreshTimerId = window.setTimeout(() => {
+      this.fsRefreshTimerId = null;
+      void this.flushFsRefresh();
+    }, delayMs);
+  }
+
+  private async flushFsRefresh() {
+    if (!this.vaultPath || this.pendingFsPaths.size === 0) return;
+
+    if (this.fsRefreshInFlight) {
+      this.fsRefreshNeedsRun = true;
+      return;
+    }
+
+    this.fsRefreshInFlight = true;
+    const rootPath = this.vaultPath;
+    const changedPaths = Array.from(this.pendingFsPaths);
+    this.pendingFsPaths.clear();
+
+    try {
+      const { directories, fullRefresh } = deriveAffectedDirectories(
+        changedPaths,
+        rootPath,
+        FS_REFRESH_MAX_DIRS
+      );
+
+      if (fullRefresh) {
+        await this.refreshVaultTree();
+        return;
+      }
+
+      if (directories.length === 0) {
+        return;
+      }
+
+      let nextTree = this.vaultTree;
+      for (const directory of directories) {
+        const subtree = await getVaultSubtree(directory);
+        const patched = applyDirectorySnapshot(nextTree, rootPath, directory, subtree);
+        if (!patched.applied) {
+          await this.refreshVaultTree();
+          return;
+        }
+        nextTree = patched.tree;
+      }
+
+      this.vaultTree = nextTree;
+      this.emit("vault-loaded");
+    } catch (error) {
+      this.perf.recordCrash("state.flushFsRefresh", error);
+      await this.refreshVaultTree();
+    } finally {
+      this.fsRefreshInFlight = false;
+      if (this.fsRefreshNeedsRun || this.pendingFsPaths.size > 0) {
+        this.fsRefreshNeedsRun = false;
+        this.scheduleFsRefresh(0);
+      }
+    }
+  }
+
+  private async ensureVaultWatcher(vaultPath: string) {
+    if (this.watcherVaultPath === vaultPath && this.watcherUnlisten) return;
+
+    this.stopVaultWatcher();
+
+    try {
+      const unlisten = await listenFsChanges((paths) => this.onFsChange(paths));
+      await startWatching();
+      this.watcherUnlisten = unlisten;
+      this.watcherVaultPath = vaultPath;
+    } catch (error) {
+      this.perf.recordCrash("state.startWatching", error);
+      this.stopVaultWatcher();
+    }
   }
 
   private clearTabHistoryTimer(tab: TabState) {
@@ -413,6 +538,7 @@ export class AppState {
       const directories = countDirectories(this.vaultTree);
       stopTreeScan({ markdownFiles, directories });
       stopTotal({ cancelled: false, markdownFiles, directories });
+      await this.ensureVaultWatcher(path);
       this.emit("vault-loaded");
     } catch (error) {
       stopTreeScan({ failed: true });

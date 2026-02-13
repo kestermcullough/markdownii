@@ -18,6 +18,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::vault::open_vault,
             commands::vault::get_vault_tree,
+            commands::vault::get_vault_subtree,
             commands::fs::read_file,
             commands::fs::write_file,
             commands::fs::create_file,

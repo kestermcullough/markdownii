@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 export interface FileEntry {
   name: string;
@@ -13,6 +14,10 @@ export async function openVaultDialog(): Promise<string | null> {
 
 export async function getVaultTree(): Promise<FileEntry[]> {
   return invoke<FileEntry[]>("get_vault_tree");
+}
+
+export async function getVaultSubtree(path: string): Promise<FileEntry[]> {
+  return invoke<FileEntry[]>("get_vault_subtree", { path });
 }
 
 export async function readFile(path: string): Promise<string> {
@@ -43,4 +48,12 @@ export async function renameFile(
 
 export async function startWatching(): Promise<void> {
   return invoke("start_watching");
+}
+
+export async function listenFsChanges(
+  onPaths: (paths: string[]) => void
+): Promise<UnlistenFn> {
+  return listen<string[]>("fs-change", (event) => {
+    onPaths(event.payload ?? []);
+  });
 }
