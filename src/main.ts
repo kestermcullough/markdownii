@@ -1,6 +1,6 @@
 import { EditorView } from "@codemirror/view";
 import { getFileName } from "./path-utils";
-import { METRIC_APP_OPEN } from "./perf-stats";
+import { METRIC_APP_OPEN, METRIC_EDITOR_RENDER } from "./perf-stats";
 import { AppState, countWords, type TabState } from "./state";
 import { createEditor } from "./editor/setup";
 import { Sidebar } from "./ui/sidebar";
@@ -43,9 +43,38 @@ A [link to something](https://example.com) renders inline.
 const WORD_COUNT_DEBOUNCE_MS = 220;
 const APP_OPEN_START = performance.now();
 
+type EditorRenderMetricDetail = {
+  durationMs: number;
+  reason: "init" | "doc" | "viewport" | "selection";
+  visibleRanges: number;
+  decorations: number;
+};
+
+const EDITOR_RENDER_SAMPLE_INTERVAL = 5;
+const EDITOR_RENDER_SLOW_PATH_MS = 8;
+
 function init() {
   const app = document.getElementById("app")!;
   const state = new AppState();
+
+  let editorRenderEventCount = 0;
+  window.addEventListener("markdownii:editor-render", (event: Event) => {
+    const detail = (event as CustomEvent<EditorRenderMetricDetail>).detail;
+    if (!detail || typeof detail.durationMs !== "number") return;
+
+    editorRenderEventCount += 1;
+    const periodicSample = editorRenderEventCount % EDITOR_RENDER_SAMPLE_INTERVAL === 0;
+    if (!periodicSample && detail.durationMs < EDITOR_RENDER_SLOW_PATH_MS) {
+      return;
+    }
+
+    state.recordPerfDuration(METRIC_EDITOR_RENDER, detail.durationMs, {
+      reason: detail.reason,
+      visibleRanges: detail.visibleRanges,
+      decorations: detail.decorations,
+      periodicSample,
+    });
+  });
 
   // Create layout container
   const layout = document.createElement("div");

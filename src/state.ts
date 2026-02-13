@@ -4,6 +4,7 @@ import {
   METRIC_FILE_OPEN,
   METRIC_VAULT_OPEN_TOTAL,
   METRIC_VAULT_TREE_SCAN,
+  METRIC_VAULT_FS_DELTA_REFRESH,
   PerfStats,
   type PerfSummary,
 } from "./perf-stats";
@@ -320,16 +321,22 @@ export class AppState {
 
   private async flushFsRefresh() {
     if (!this.vaultPath || this.pendingFsPaths.size === 0) return;
-
     if (this.fsRefreshInFlight) {
       this.fsRefreshNeedsRun = true;
       return;
     }
-
     this.fsRefreshInFlight = true;
     const rootPath = this.vaultPath;
     const changedPaths = Array.from(this.pendingFsPaths);
     this.pendingFsPaths.clear();
+    const stopDeltaRefresh = this.perf.startTimer(METRIC_VAULT_FS_DELTA_REFRESH, {
+      changedPaths: changedPaths.length,
+    });
+    let metricDirectories = 0;
+    let metricFullRefresh = false;
+    let metricFallbackRefresh = false;
+    let metricSkipped = false;
+    let metricFailed = false;
 
     try {
       const { directories, fullRefresh } = deriveAffectedDirectories(
@@ -337,33 +344,43 @@ export class AppState {
         rootPath,
         FS_REFRESH_MAX_DIRS
       );
-
       if (fullRefresh) {
+        metricFullRefresh = true;
         await this.refreshVaultTree();
         return;
       }
-
       if (directories.length === 0) {
+        metricSkipped = true;
         return;
       }
 
+      metricDirectories = directories.length;
       let nextTree = this.vaultTree;
       for (const directory of directories) {
         const subtree = await getVaultSubtree(directory);
         const patched = applyDirectorySnapshot(nextTree, rootPath, directory, subtree);
         if (!patched.applied) {
+          metricFallbackRefresh = true;
           await this.refreshVaultTree();
           return;
         }
         nextTree = patched.tree;
       }
-
       this.vaultTree = nextTree;
       this.emit("vault-loaded");
     } catch (error) {
+      metricFailed = true;
+      metricFallbackRefresh = true;
       this.perf.recordCrash("state.flushFsRefresh", error);
       await this.refreshVaultTree();
     } finally {
+      stopDeltaRefresh({
+        directories: metricDirectories,
+        fullRefresh: metricFullRefresh,
+        fallbackRefresh: metricFallbackRefresh,
+        skipped: metricSkipped,
+        failed: metricFailed,
+      });
       this.fsRefreshInFlight = false;
       if (this.fsRefreshNeedsRun || this.pendingFsPaths.size > 0) {
         this.fsRefreshNeedsRun = false;

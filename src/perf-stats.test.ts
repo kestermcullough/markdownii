@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   METRIC_APP_OPEN,
+  METRIC_EDITOR_RENDER,
+  METRIC_VAULT_FS_DELTA_REFRESH,
   METRIC_VAULT_OPEN_TOTAL,
   METRIC_VAULT_TREE_SCAN,
   PerfStats,
@@ -18,11 +20,28 @@ describe("PerfStats", () => {
       ignored: null,
     });
 
+    perf.recordDuration(METRIC_VAULT_FS_DELTA_REFRESH, 30.1, {
+      fullRefresh: true,
+    });
+    perf.recordDuration(METRIC_VAULT_FS_DELTA_REFRESH, 18.4, {
+      fallbackRefresh: true,
+    });
+    perf.recordDuration(METRIC_EDITOR_RENDER, 1.1);
+    perf.recordDuration(METRIC_EDITOR_RENDER, 2.2);
+    perf.recordDuration(METRIC_EDITOR_RENDER, 3.3);
+    perf.recordDuration(METRIC_EDITOR_RENDER, 4.4);
+    perf.recordDuration(METRIC_EDITOR_RENDER, 9.9);
+
     const summary = perf.summary();
     expect(summary.appOpenMs).toBe(120.23);
     expect(summary.vaultOpenMs).toBe(340.56);
     expect(summary.vaultTreeScanMs).toBe(212.45);
     expect(summary.crashCount).toBe(0);
+    expect(summary.vaultFsDeltaMs).toBe(18.4);
+    expect(summary.vaultFsFullRefreshes).toBe(1);
+    expect(summary.vaultFsFallbackRefreshes).toBe(1);
+    expect(summary.editorRenderP50Ms).toBe(3.3);
+    expect(summary.editorRenderP95Ms).toBe(9.9);
   });
 
   it("supports start/stop timer closures", () => {

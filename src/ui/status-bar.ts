@@ -51,6 +51,25 @@ export class StatusBar {
     if (summary.vaultTreeScanMs !== null) {
       parts.push(`Scan ${formatMs(summary.vaultTreeScanMs)}`);
     }
+    if (summary.vaultFsDeltaMs !== null) {
+      parts.push(`ΔTree ${formatMs(summary.vaultFsDeltaMs)}`);
+    }
+    if (
+      summary.vaultFsFullRefreshes > 0 ||
+      summary.vaultFsFallbackRefreshes > 0
+    ) {
+      parts.push(
+        `Tree full ${summary.vaultFsFullRefreshes} fb ${summary.vaultFsFallbackRefreshes}`
+      );
+    }
+    if (
+      summary.editorRenderP50Ms !== null &&
+      summary.editorRenderP95Ms !== null
+    ) {
+      parts.push(
+        `Render ${formatMs(summary.editorRenderP50Ms)}/${formatMs(summary.editorRenderP95Ms)}`
+      );
+    }
     if (summary.crashCount > 0) {
       parts.push(`Errors ${summary.crashCount}`);
     }

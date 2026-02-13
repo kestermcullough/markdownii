@@ -32,6 +32,27 @@ function lineMayNeedInlineRendering(lineText: string): boolean {
   return INLINE_RENDER_MARKER_RE.test(lineText);
 }
 
+type RenderRebuildReason = "init" | "doc" | "viewport" | "selection";
+
+interface EditorRenderMetricDetail {
+  durationMs: number;
+  reason: RenderRebuildReason;
+  visibleRanges: number;
+  decorations: number;
+}
+
+function emitEditorRenderMetric(detail: EditorRenderMetricDetail) {
+  if (typeof window === "undefined" || typeof CustomEvent === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent<EditorRenderMetricDetail>("markdownii:editor-render", {
+      detail,
+    })
+  );
+}
+
 function cursorContextSignature(
   state: EditorState,
   pos: number,
@@ -120,21 +141,27 @@ class MarkdownRenderPlugin {
   decorations: DecorationSet;
 
   constructor(view: EditorView) {
-    this.decorations = this.buildDecorations(view);
+    this.decorations = this.buildDecorations(view, "init");
   }
 
   update(update: ViewUpdate) {
     if (update.docChanged || update.viewportChanged) {
-      this.decorations = this.buildDecorations(update.view);
+      this.decorations = this.buildDecorations(
+        update.view,
+        update.docChanged ? "doc" : "viewport"
+      );
       return;
     }
-
     if (update.selectionSet && shouldRebuildForSelection(update)) {
-      this.decorations = this.buildDecorations(update.view);
+      this.decorations = this.buildDecorations(update.view, "selection");
     }
   }
 
-  buildDecorations(view: EditorView): DecorationSet {
+  buildDecorations(view: EditorView, reason: RenderRebuildReason): DecorationSet {
+    const startedAt =
+      typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now()
+        : Date.now();
     const state = view.state;
     const tree = syntaxTree(state);
     const cursorRanges = state.selection.ranges;
@@ -256,8 +283,21 @@ class MarkdownRenderPlugin {
     for (const d of decos) {
       builder.add(d.from, d.to, d.value);
     }
-    return builder.finish();
-  }
+    const result = builder.finish();
+    const endedAt =
+      typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now()
+        : Date.now();
+
+    emitEditorRenderMetric({
+      durationMs: endedAt - startedAt,
+      reason,
+      visibleRanges: view.visibleRanges.length,
+      decorations: decos.length,
+    });
+
+    return result;
+}
 }
 
 export const markdownRenderPlugin = ViewPlugin.fromClass(
