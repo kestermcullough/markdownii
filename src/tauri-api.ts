@@ -8,6 +8,14 @@ export interface FileEntry {
   children: FileEntry[] | null;
 }
 
+export type FsChangeKind = "create" | "delete" | "rename" | "change" | "other";
+
+export interface FsChangeEvent {
+  kind: FsChangeKind;
+  path: string;
+  oldPath?: string;
+}
+
 export async function openVaultDialog(): Promise<string | null> {
   return invoke<string | null>("open_vault");
 }
@@ -51,9 +59,9 @@ export async function startWatching(): Promise<void> {
 }
 
 export async function listenFsChanges(
-  onPaths: (paths: string[]) => void
+  onEvents: (events: FsChangeEvent[]) => void
 ): Promise<UnlistenFn> {
-  return listen<string[]>("fs-change", (event) => {
-    onPaths(event.payload ?? []);
+  return listen<FsChangeEvent[]>("fs-change", (event) => {
+    onEvents(event.payload ?? []);
   });
 }

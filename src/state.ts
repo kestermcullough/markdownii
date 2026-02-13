@@ -7,7 +7,7 @@ import {
   PerfStats,
   type PerfSummary,
 } from "./perf-stats";
-import type { FileEntry } from "./tauri-api";
+import type { FileEntry, FsChangeEvent } from "./tauri-api";
 import {
   getVaultSubtree,
   openVaultDialog,
@@ -297,11 +297,14 @@ export class AppState {
     this.watcherUnlisten = null;
   }
 
-  private onFsChange(paths: string[]) {
-    if (!this.vaultPath || paths.length === 0) return;
-    for (const path of paths) {
-      if (typeof path === "string" && path.length) {
-        this.pendingFsPaths.add(path);
+  private onFsChange(events: FsChangeEvent[]) {
+    if (!this.vaultPath || events.length === 0) return;
+    for (const event of events) {
+      if (typeof event.path === "string" && event.path.length) {
+        this.pendingFsPaths.add(event.path);
+      }
+      if (typeof event.oldPath === "string" && event.oldPath.length) {
+        this.pendingFsPaths.add(event.oldPath);
       }
     }
     this.scheduleFsRefresh();
@@ -375,7 +378,7 @@ export class AppState {
     this.stopVaultWatcher();
 
     try {
-      const unlisten = await listenFsChanges((paths) => this.onFsChange(paths));
+      const unlisten = await listenFsChanges((events) => this.onFsChange(events));
       await startWatching();
       this.watcherUnlisten = unlisten;
       this.watcherVaultPath = vaultPath;
